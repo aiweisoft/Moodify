@@ -106,11 +106,11 @@ function AppContent() {
   }
 
   if (!state.currentUser) {
-    return <AuthScreen onAuthSuccess={() => {}} />;
+    return <AuthScreen key="auth" onAuthSuccess={() => {}} />;
   }
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} key={state.currentUser.id}>
       <MainNavigator />
     </View>
   );
