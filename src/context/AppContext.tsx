@@ -168,7 +168,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return { success: true, message: '注册成功' };
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await AsyncStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          users: state.users,
+          currentUser: null,
+          moods: state.moods,
+        })
+      );
+    } catch (error) {
+      console.log('Error saving on logout:', error);
+    }
     dispatch({ type: 'SET_CURRENT_USER', payload: null });
     dispatch({ type: 'SET_MOODS', payload: [] });
   };
