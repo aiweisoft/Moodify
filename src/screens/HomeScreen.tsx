@@ -65,7 +65,7 @@ export default function HomeScreen({ navigation }: any) {
       '确定要退出登录吗？',
       [
         { text: '取消', style: 'cancel' },
-        { text: '退出', style: 'destructive', onPress: logout },
+        { text: '退出', style: 'destructive', onPress: () => logout() },
       ]
     );
   };

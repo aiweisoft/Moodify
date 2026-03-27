@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { Text, View, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
@@ -19,8 +19,6 @@ function TabIcon({ emoji, focused }: { emoji: string; focused: boolean }) {
 }
 
 function MainNavigator() {
-  const { logout } = useAuth();
-  
   return (
     <Tab.Navigator
       screenOptions={{
@@ -41,54 +39,10 @@ function MainNavigator() {
         },
       }}
     >
-      <Tab.Screen
-        name="Home"
-        component={HomeScreen}
-        options={{
-          tabBarLabel: '首页',
-          tabBarIcon: ({ focused }) => <TabIcon emoji="🏠" focused={focused} />,
-        }}
-      />
-      <Tab.Screen
-        name="Diary"
-        component={DiaryScreen}
-        options={{
-          tabBarLabel: '日记',
-          tabBarIcon: ({ focused }) => <TabIcon emoji="📝" focused={focused} />,
-        }}
-      />
-      <Tab.Screen
-        name="Community"
-        component={CommunityScreen}
-        options={{
-          tabBarLabel: '社区',
-          tabBarIcon: ({ focused }) => <TabIcon emoji="💬" focused={focused} />,
-        }}
-      />
+      <Tab.Screen name="Home" component={HomeScreen} options={{ tabBarLabel: '首页', tabBarIcon: ({ focused }) => <TabIcon emoji="🏠" focused={focused} /> }} />
+      <Tab.Screen name="Diary" component={DiaryScreen} options={{ tabBarLabel: '日记', tabBarIcon: ({ focused }) => <TabIcon emoji="📝" focused={focused} /> }} />
+      <Tab.Screen name="Community" component={CommunityScreen} options={{ tabBarLabel: '社区', tabBarIcon: ({ focused }) => <TabIcon emoji="💬" focused={focused} /> }} />
     </Tab.Navigator>
-  );
-}
-
-function AppContent() {
-  const { auth } = useAuth();
-  const [key, setKey] = useState(0);
-
-  useEffect(() => {
-    setKey(k => k + 1);
-  }, [auth.user]);
-
-  if (auth.isLoading) {
-    return (
-      <View style={styles.loading}>
-        <Text style={styles.logo}>Moodify</Text>
-      </View>
-    );
-  }
-
-  return (
-    <View style={styles.container} key={key}>
-      {auth.user ? <MainNavigator /> : <AuthScreen />}
-    </View>
   );
 }
 
@@ -103,19 +57,36 @@ export default function App() {
   );
 }
 
+function AppContent() {
+  const { auth } = useAuth();
+  const [renderKey, setRenderKey] = useState(0);
+  const [lastUserId, setLastUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (auth.isLoading) return;
+    if (lastUserId !== (auth.user?.id || null)) {
+      setLastUserId(auth.user?.id || null);
+      setRenderKey(k => k + 1);
+    }
+  }, [auth.user, auth.isLoading, lastUserId]);
+
+  if (auth.isLoading) {
+    return (
+      <View style={styles.loading}>
+        <Text style={styles.logo}>Moodify</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      {auth.user ? <MainNavigator /> : <AuthScreen />}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  loading: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  logo: {
-    fontSize: 40,
-    fontWeight: 'bold',
-    color: COLORS.primary,
-  },
+  container: { flex: 1 },
+  loading: { flex: 1, backgroundColor: COLORS.background, justifyContent: 'center', alignItems: 'center' },
+  logo: { fontSize: 40, fontWeight: 'bold', color: COLORS.primary },
 });

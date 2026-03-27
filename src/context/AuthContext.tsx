@@ -95,7 +95,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
+    console.log('Logging out, current user:', auth.user?.username);
     saveAuth({ ...auth, user: null });
+    console.log('Logout complete, new user:', null);
   };
 
   return (
