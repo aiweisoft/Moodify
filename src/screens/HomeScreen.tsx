@@ -1,19 +1,46 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Alert } from 'react-native';
-import { useApp } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 import { COLORS, MOOD_OPTIONS } from '../constants';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width } = Dimensions.get('window');
+const MOODS_KEY = '@moodify_moods';
 
 export default function HomeScreen({ navigation }: any) {
-  const { getTodayMood, getWeekMoods, state, logout } = useApp();
-  const todayMood = getTodayMood();
-  const weekMoods = getWeekMoods();
+  const { auth, logout } = useAuth();
+  const [moods, setMoods] = useState<any[]>([]);
   const [, forceUpdate] = useState(0);
 
   useEffect(() => {
+    loadMoods();
+  }, []);
+
+  useEffect(() => {
     forceUpdate(n => n + 1);
-  }, [state.currentUser]);
+  }, [auth.user]);
+
+  const loadMoods = async () => {
+    try {
+      const data = await AsyncStorage.getItem(MOODS_KEY);
+      if (data) {
+        setMoods(JSON.parse(data));
+      }
+    } catch (error) {
+      console.log('Error loading moods:', error);
+    }
+  };
+
+  const userId = auth.user?.id;
+  const today = new Date().toISOString().split('T')[0];
+  const todayMood = moods.find(m => m.date === today && m.userId === userId);
+  const weekMoods = moods.filter(m => {
+    if (!userId || m.userId !== userId) return false;
+    const moodDate = new Date(m.date);
+    const weekAgo = new Date();
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    return moodDate >= weekAgo;
+  });
 
   const getMoodEmoji = (label: string) => {
     const mood = MOOD_OPTIONS.find(m => m.label === label);
@@ -38,13 +65,7 @@ export default function HomeScreen({ navigation }: any) {
       '确定要退出登录吗？',
       [
         { text: '取消', style: 'cancel' },
-        { 
-          text: '退出', 
-          style: 'destructive', 
-          onPress: () => {
-            logout();
-          },
-        },
+        { text: '退出', style: 'destructive', onPress: logout },
       ]
     );
   };
@@ -60,11 +81,11 @@ export default function HomeScreen({ navigation }: any) {
           <TouchableOpacity style={styles.userButton} onPress={handleLogout}>
             <View style={styles.avatar}>
               <Text style={styles.avatarText}>
-                {(state.currentUser?.username || '游')[0].toUpperCase()}
+                {(auth.user?.username || '游')[0].toUpperCase()}
               </Text>
             </View>
             <View style={styles.userInfo}>
-              <Text style={styles.userName}>{state.currentUser?.username || '游客'}</Text>
+              <Text style={styles.userName}>{auth.user?.username || '游客'}</Text>
               <Text style={styles.logoutText}>退出</Text>
             </View>
           </TouchableOpacity>
@@ -109,7 +130,7 @@ export default function HomeScreen({ navigation }: any) {
               const date = new Date();
               date.setDate(date.getDate() - (6 - index));
               const dateStr = date.toISOString().split('T')[0];
-              const mood = state.moods.find(m => m.date === dateStr && m.userId === state.currentUser?.id);
+              const mood = moods.find(m => m.date === dateStr && m.userId === userId);
               const dayNames = ['日', '一', '二', '三', '四', '五', '六'];
               
               return (
@@ -152,199 +173,58 @@ export default function HomeScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  header: {
-    padding: 20,
-    paddingTop: 40,
-  },
-  greeting: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: COLORS.textPrimary,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: COLORS.textSecondary,
-    marginTop: 4,
-  },
+  container: { flex: 1, backgroundColor: COLORS.background },
+  header: { padding: 20, paddingTop: 40 },
+  greeting: { fontSize: 28, fontWeight: 'bold', color: COLORS.textPrimary },
+  subtitle: { fontSize: 16, color: COLORS.textSecondary, marginTop: 4 },
   todayCard: {
-    margin: 16,
-    padding: 20,
-    backgroundColor: COLORS.card,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    margin: 16, padding: 20, backgroundColor: COLORS.card, borderRadius: 16,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 3,
   },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: COLORS.textPrimary,
-    marginBottom: 16,
-  },
-  todayMoodRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  todayEmoji: {
-    fontSize: 48,
-    marginRight: 16,
-  },
-  todayInfo: {
-    flex: 1,
-  },
-  todayLabel: {
-    fontSize: 20,
-    fontWeight: '600',
-  },
-  todayNote: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    marginTop: 4,
-  },
-  emptyState: {
-    alignItems: 'center',
-    padding: 20,
-  },
-  emptyEmoji: {
-    fontSize: 40,
-    marginBottom: 12,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: COLORS.textSecondary,
-    marginBottom: 16,
-  },
-  recordButton: {
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 24,
-  },
-  recordButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
+  cardTitle: { fontSize: 18, fontWeight: '600', color: COLORS.textPrimary, marginBottom: 16 },
+  todayMoodRow: { flexDirection: 'row', alignItems: 'center' },
+  todayEmoji: { fontSize: 48, marginRight: 16 },
+  todayInfo: { flex: 1 },
+  todayLabel: { fontSize: 20, fontWeight: '600' },
+  todayNote: { fontSize: 14, color: COLORS.textSecondary, marginTop: 4 },
+  emptyState: { alignItems: 'center', padding: 20 },
+  emptyEmoji: { fontSize: 40, marginBottom: 12 },
+  emptyText: { fontSize: 16, color: COLORS.textSecondary, marginBottom: 16 },
+  recordButton: { backgroundColor: COLORS.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 24 },
+  recordButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
   weekCard: {
-    margin: 16,
-    marginTop: 0,
-    padding: 20,
-    backgroundColor: COLORS.card,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    margin: 16, marginTop: 0, padding: 20, backgroundColor: COLORS.card, borderRadius: 16,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 3,
   },
-  weekChart: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  dayColumn: {
-    alignItems: 'center',
-  },
+  weekChart: { flexDirection: 'row', justifyContent: 'space-between' },
+  dayColumn: { alignItems: 'center' },
   dayBar: {
-    width: 36,
-    height: 50,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: COLORS.background,
-    borderRadius: 8,
-    marginBottom: 8,
+    width: 36, height: 50, justifyContent: 'center', alignItems: 'center',
+    backgroundColor: COLORS.background, borderRadius: 8, marginBottom: 8,
   },
-  dayEmoji: {
-    fontSize: 24,
-  },
-  dayEmpty: {
-    fontSize: 16,
-    color: COLORS.textSecondary,
-  },
-  dayLabel: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-  },
-  noDataText: {
-    textAlign: 'center',
-    color: COLORS.textSecondary,
-    padding: 20,
-  },
-  quickActions: {
-    flexDirection: 'row',
-    padding: 16,
-    gap: 12,
-  },
+  dayEmoji: { fontSize: 24 },
+  dayEmpty: { fontSize: 16, color: COLORS.textSecondary },
+  dayLabel: { fontSize: 12, color: COLORS.textSecondary },
+  noDataText: { textAlign: 'center', color: COLORS.textSecondary, padding: 20 },
+  quickActions: { flexDirection: 'row', padding: 16, gap: 12 },
   actionButton: {
-    flex: 1,
-    backgroundColor: COLORS.card,
-    padding: 20,
-    borderRadius: 16,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    flex: 1, backgroundColor: COLORS.card, padding: 20, borderRadius: 16, alignItems: 'center',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 3,
   },
-  actionEmoji: {
-    fontSize: 32,
-    marginBottom: 8,
-  },
-  actionText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.textPrimary,
-  },
-  headerTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
+  actionEmoji: { fontSize: 32, marginBottom: 8 },
+  actionText: { fontSize: 16, fontWeight: '600', color: COLORS.textPrimary },
+  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   userButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.card,
-    paddingLeft: 4,
-    paddingRight: 12,
-    paddingVertical: 6,
-    borderRadius: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.card,
+    paddingLeft: 4, paddingRight: 12, paddingVertical: 6, borderRadius: 24,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 2,
   },
   avatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: COLORS.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 8,
+    width: 32, height: 32, borderRadius: 16, backgroundColor: COLORS.primary,
+    justifyContent: 'center', alignItems: 'center', marginRight: 8,
   },
-  avatarText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  userInfo: {
-    alignItems: 'flex-start',
-  },
-  userName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.textPrimary,
-  },
-  logoutText: {
-    fontSize: 11,
-    color: COLORS.textSecondary,
-    marginTop: 1,
-  },
+  avatarText: { fontSize: 14, fontWeight: 'bold', color: '#fff' },
+  userInfo: { alignItems: 'flex-start' },
+  userName: { fontSize: 14, fontWeight: '600', color: COLORS.textPrimary },
+  logoutText: { fontSize: 11, color: COLORS.textSecondary, marginTop: 1 },
 });

@@ -1,33 +1,46 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  Modal,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert,
+  KeyboardAvoidingView, Platform, Modal,
 } from 'react-native';
-import { useApp } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 import { COLORS, MOOD_OPTIONS, MoodEntry } from '../constants';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const MOODS_KEY = '@moodify_moods';
 
 export default function DiaryScreen() {
-  const { state, dispatch } = useApp();
+  const { auth } = useAuth();
+  const [moods, setMoods] = useState<MoodEntry[]>([]);
   const [selectedMood, setSelectedMood] = useState<typeof MOOD_OPTIONS[number] | null>(null);
   const [note, setNote] = useState('');
   const [showHistory, setShowHistory] = useState(false);
   const [viewingMood, setViewingMood] = useState<MoodEntry | null>(null);
 
-  const userId = state.currentUser?.id || 'guest';
-  const today = new Date().toISOString().split('T')[0];
-  const todayMood = state.moods.find(
-    m => m.date === today && m.userId === userId
-  );
+  useEffect(() => {
+    loadMoods();
+  }, []);
 
-  const userMoods = state.moods
+  const loadMoods = async () => {
+    try {
+      const data = await AsyncStorage.getItem(MOODS_KEY);
+      if (data) {
+        setMoods(JSON.parse(data));
+      }
+    } catch (error) {
+      console.log('Error loading moods:', error);
+    }
+  };
+
+  const saveMoods = async (newMoods: MoodEntry[]) => {
+    setMoods(newMoods);
+    await AsyncStorage.setItem(MOODS_KEY, JSON.stringify(newMoods));
+  };
+
+  const userId = auth.user?.id || 'guest';
+  const today = new Date().toISOString().split('T')[0];
+  const todayMood = moods.find(m => m.date === today && m.userId === userId);
+  const userMoods = moods
     .filter(m => m.userId === userId)
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
@@ -48,13 +61,10 @@ export default function DiaryScreen() {
     };
 
     if (todayMood) {
-      dispatch({
-        type: 'SET_MOODS',
-        payload: state.moods.map(m => m.date === today && m.userId === userId ? newMood : m),
-      });
+      saveMoods(moods.map(m => m.date === today && m.userId === userId ? newMood : m));
       Alert.alert('更新成功', '今天的心情已更新');
     } else {
-      dispatch({ type: 'ADD_MOOD', payload: newMood });
+      saveMoods([newMood, ...moods]);
       Alert.alert('保存成功', '你的心情已记录');
     }
 
@@ -63,25 +73,14 @@ export default function DiaryScreen() {
   };
 
   const handleDelete = () => {
-    Alert.alert(
-      '删除确认',
-      '确定要删除今天的心情记录吗？',
-      [
-        { text: '取消', style: 'cancel' },
-        {
-          text: '删除',
-          style: 'destructive',
-          onPress: () => {
-            dispatch({
-              type: 'SET_MOODS',
-              payload: state.moods.filter(m => !(m.date === today && m.userId === userId)),
-            });
-            setSelectedMood(null);
-            setNote('');
-          },
-        },
-      ]
-    );
+    Alert.alert('删除确认', '确定要删除今天的心情记录吗？', [
+      { text: '取消', style: 'cancel' },
+      { text: '删除', style: 'destructive', onPress: () => {
+        saveMoods(moods.filter(m => !(m.date === today && m.userId === userId)));
+        setSelectedMood(null);
+        setNote('');
+      }},
+    ]);
   };
 
   const handleViewHistory = (mood: MoodEntry) => {
@@ -90,21 +89,10 @@ export default function DiaryScreen() {
 
   const handleCloseView = () => {
     if (viewingMood) {
-      dispatch({
-        type: 'SET_MOODS',
-        payload: state.moods.filter(m => m.id !== viewingMood.id),
-      });
+      saveMoods(moods.filter(m => m.id !== viewingMood.id));
     }
     setViewingMood(null);
     setShowHistory(false);
-  };
-
-  const handleEditToday = () => {
-    if (todayMood) {
-      const moodOption = MOOD_OPTIONS.find(m => m.label === todayMood.label);
-      setSelectedMood(moodOption || null);
-      setNote(todayMood.note);
-    }
   };
 
   const formatDate = (dateStr: string) => {
@@ -112,18 +100,13 @@ export default function DiaryScreen() {
     const today = new Date();
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
-
     if (dateStr === today.toISOString().split('T')[0]) return '今天';
     if (dateStr === yesterday.toISOString().split('T')[0]) return '昨天';
-
     return `${date.getMonth() + 1}月${date.getDate()}日`;
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView style={styles.scrollView}>
         <View style={styles.header}>
           <Text style={styles.title}>心情日记</Text>
@@ -136,24 +119,11 @@ export default function DiaryScreen() {
             {MOOD_OPTIONS.map((mood) => (
               <TouchableOpacity
                 key={mood.label}
-                style={[
-                  styles.moodOption,
-                  selectedMood?.label === mood.label && {
-                    backgroundColor: mood.color + '20',
-                    borderColor: mood.color,
-                  },
-                ]}
+                style={[styles.moodOption, selectedMood?.label === mood.label && { backgroundColor: mood.color + '20', borderColor: mood.color }]}
                 onPress={() => setSelectedMood(mood)}
               >
                 <Text style={styles.moodEmoji}>{mood.emoji}</Text>
-                <Text
-                  style={[
-                    styles.moodLabel,
-                    selectedMood?.label === mood.label && { color: mood.color },
-                  ]}
-                >
-                  {mood.label}
-                </Text>
+                <Text style={[styles.moodLabel, selectedMood?.label === mood.label && { color: mood.color }]}>{mood.label}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -170,9 +140,7 @@ export default function DiaryScreen() {
           />
 
           <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-            <Text style={styles.saveButtonText}>
-              {todayMood ? '更新记录' : '保存'}
-            </Text>
+            <Text style={styles.saveButtonText}>{todayMood ? '更新记录' : '保存'}</Text>
           </TouchableOpacity>
 
           {todayMood && (
@@ -182,65 +150,41 @@ export default function DiaryScreen() {
           )}
         </View>
 
-        <TouchableOpacity
-          style={styles.historyHeader}
-          onPress={() => setShowHistory(!showHistory)}
-        >
+        <TouchableOpacity style={styles.historyHeader} onPress={() => setShowHistory(!showHistory)}>
           <Text style={styles.historyTitle}>历史记录</Text>
           <Text style={styles.historyToggle}>{showHistory ? '▼' : '▶'}</Text>
         </TouchableOpacity>
 
         {showHistory && (
           <View style={styles.historyList}>
-            {userMoods.length > 0 ? (
-              userMoods
-                .filter(m => m.date !== today)
-                .map((mood) => (
-                  <TouchableOpacity
-                    key={mood.id}
-                    style={styles.historyItem}
-                    onPress={() => handleViewHistory(mood)}
-                  >
-                    <View style={styles.historyLeft}>
-                      <Text style={styles.historyEmoji}>{mood.emoji}</Text>
-                      <View>
-                        <Text style={styles.historyDate}>{formatDate(mood.date)}</Text>
-                        <Text style={styles.historyMood}>{mood.label}</Text>
-                      </View>
+            {userMoods.filter(m => m.date !== today).length > 0 ? (
+              userMoods.filter(m => m.date !== today).map((mood) => (
+                <TouchableOpacity key={mood.id} style={styles.historyItem} onPress={() => handleViewHistory(mood)}>
+                  <View style={styles.historyLeft}>
+                    <Text style={styles.historyEmoji}>{mood.emoji}</Text>
+                    <View>
+                      <Text style={styles.historyDate}>{formatDate(mood.date)}</Text>
+                      <Text style={styles.historyMood}>{mood.label}</Text>
                     </View>
-                    {mood.note ? (
-                      <Text style={styles.historyNote} numberOfLines={2}>
-                        {mood.note}
-                      </Text>
-                    ) : null}
-                    <Text style={styles.viewHint}>点击查看</Text>
-                  </TouchableOpacity>
-                ))
+                  </View>
+                  {mood.note ? <Text style={styles.historyNote} numberOfLines={2}>{mood.note}</Text> : null}
+                  <Text style={styles.viewHint}>点击查看</Text>
+                </TouchableOpacity>
+              ))
             ) : (
-              <View style={styles.emptyHistory}>
-                <Text style={styles.emptyHistoryText}>还没有历史记录</Text>
-              </View>
+              <View style={styles.emptyHistory}><Text style={styles.emptyHistoryText}>还没有历史记录</Text></View>
             )}
           </View>
         )}
       </ScrollView>
 
-      <Modal
-        visible={!!viewingMood}
-        animationType="slide"
-        transparent
-        onRequestClose={handleCloseView}
-      >
+      <Modal visible={!!viewingMood} animationType="slide" transparent onRequestClose={handleCloseView}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalEmoji}>{viewingMood?.emoji}</Text>
             <Text style={styles.modalMood}>{viewingMood?.label}</Text>
             <Text style={styles.modalDate}>{formatDate(viewingMood?.date || '')}</Text>
-            {viewingMood?.note ? (
-              <Text style={styles.modalNote}>{viewingMood.note}</Text>
-            ) : (
-              <Text style={styles.noNoteText}>暂无记录</Text>
-            )}
+            {viewingMood?.note ? <Text style={styles.modalNote}>{viewingMood.note}</Text> : <Text style={styles.noNoteText}>暂无记录</Text>}
             <TouchableOpacity style={styles.closeButton} onPress={handleCloseView}>
               <Text style={styles.closeButtonText}>查看后自动删除</Text>
             </TouchableOpacity>
@@ -252,217 +196,42 @@ export default function DiaryScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  header: {
-    padding: 20,
-    paddingTop: 40,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: COLORS.textPrimary,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: COLORS.textSecondary,
-    marginTop: 4,
-  },
-  inputCard: {
-    margin: 16,
-    marginTop: 0,
-    padding: 20,
-    backgroundColor: COLORS.card,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.textPrimary,
-    marginBottom: 12,
-    marginTop: 8,
-  },
-  moodGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  moodOption: {
-    alignItems: 'center',
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: 'transparent',
-    backgroundColor: COLORS.background,
-    flex: 1,
-    marginHorizontal: 4,
-  },
-  moodEmoji: {
-    fontSize: 32,
-    marginBottom: 4,
-  },
-  moodLabel: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-  },
-  noteInput: {
-    backgroundColor: COLORS.background,
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 16,
-    minHeight: 100,
-    color: COLORS.textPrimary,
-    marginBottom: 16,
-  },
-  saveButton: {
-    backgroundColor: COLORS.primary,
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  saveButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  deleteButton: {
-    backgroundColor: '#FEE2E2',
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  deleteButtonText: {
-    color: '#EF4444',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  historyHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    paddingBottom: 12,
-  },
-  historyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: COLORS.textPrimary,
-  },
-  historyToggle: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-  },
-  historyList: {
-    padding: 16,
-    paddingTop: 0,
-  },
-  historyItem: {
-    backgroundColor: COLORS.card,
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  historyLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  historyEmoji: {
-    fontSize: 32,
-    marginRight: 12,
-  },
-  historyDate: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-  },
-  historyMood: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.textPrimary,
-  },
-  historyNote: {
-    flex: 1,
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    marginLeft: 12,
-    textAlign: 'right',
-  },
-  viewHint: {
-    fontSize: 12,
-    color: COLORS.primary,
-    marginLeft: 8,
-  },
-  emptyHistory: {
-    padding: 40,
-    alignItems: 'center',
-  },
-  emptyHistoryText: {
-    fontSize: 16,
-    color: COLORS.textSecondary,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  modalContent: {
-    backgroundColor: COLORS.card,
-    borderRadius: 24,
-    padding: 32,
-    width: '100%',
-    alignItems: 'center',
-  },
-  modalEmoji: {
-    fontSize: 64,
-    marginBottom: 16,
-  },
-  modalMood: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: COLORS.textPrimary,
-    marginBottom: 8,
-  },
-  modalDate: {
-    fontSize: 16,
-    color: COLORS.textSecondary,
-    marginBottom: 16,
-  },
-  modalNote: {
-    fontSize: 16,
-    color: COLORS.textPrimary,
-    lineHeight: 24,
-    textAlign: 'center',
-    marginBottom: 24,
-  },
-  noNoteText: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    marginBottom: 24,
-  },
-  closeButton: {
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 32,
-    paddingVertical: 16,
-    borderRadius: 12,
-  },
-  closeButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
+  container: { flex: 1, backgroundColor: COLORS.background },
+  scrollView: { flex: 1 },
+  header: { padding: 20, paddingTop: 40 },
+  title: { fontSize: 28, fontWeight: 'bold', color: COLORS.textPrimary },
+  subtitle: { fontSize: 16, color: COLORS.textSecondary, marginTop: 4 },
+  inputCard: { margin: 16, marginTop: 0, padding: 20, backgroundColor: COLORS.card, borderRadius: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 3 },
+  sectionTitle: { fontSize: 16, fontWeight: '600', color: COLORS.textPrimary, marginBottom: 12, marginTop: 8 },
+  moodGrid: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 },
+  moodOption: { alignItems: 'center', padding: 12, borderRadius: 12, borderWidth: 2, borderColor: 'transparent', backgroundColor: COLORS.background, flex: 1, marginHorizontal: 4 },
+  moodEmoji: { fontSize: 32, marginBottom: 4 },
+  moodLabel: { fontSize: 12, color: COLORS.textSecondary },
+  noteInput: { backgroundColor: COLORS.background, borderRadius: 12, padding: 16, fontSize: 16, minHeight: 100, color: COLORS.textPrimary, marginBottom: 16 },
+  saveButton: { backgroundColor: COLORS.primary, padding: 16, borderRadius: 12, alignItems: 'center', marginBottom: 12 },
+  saveButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  deleteButton: { backgroundColor: '#FEE2E2', padding: 16, borderRadius: 12, alignItems: 'center' },
+  deleteButtonText: { color: '#EF4444', fontSize: 16, fontWeight: '600' },
+  historyHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, paddingBottom: 12 },
+  historyTitle: { fontSize: 18, fontWeight: '600', color: COLORS.textPrimary },
+  historyToggle: { fontSize: 14, color: COLORS.textSecondary },
+  historyList: { padding: 16, paddingTop: 0 },
+  historyItem: { backgroundColor: COLORS.card, padding: 16, borderRadius: 12, marginBottom: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  historyLeft: { flexDirection: 'row', alignItems: 'center' },
+  historyEmoji: { fontSize: 32, marginRight: 12 },
+  historyDate: { fontSize: 14, color: COLORS.textSecondary },
+  historyMood: { fontSize: 16, fontWeight: '600', color: COLORS.textPrimary },
+  historyNote: { flex: 1, fontSize: 14, color: COLORS.textSecondary, marginLeft: 12, textAlign: 'right' },
+  viewHint: { fontSize: 12, color: COLORS.primary, marginLeft: 8 },
+  emptyHistory: { padding: 40, alignItems: 'center' },
+  emptyHistoryText: { fontSize: 16, color: COLORS.textSecondary },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  modalContent: { backgroundColor: COLORS.card, borderRadius: 24, padding: 32, width: '100%', alignItems: 'center' },
+  modalEmoji: { fontSize: 64, marginBottom: 16 },
+  modalMood: { fontSize: 24, fontWeight: 'bold', color: COLORS.textPrimary, marginBottom: 8 },
+  modalDate: { fontSize: 16, color: COLORS.textSecondary, marginBottom: 16 },
+  modalNote: { fontSize: 16, color: COLORS.textPrimary, lineHeight: 24, textAlign: 'center', marginBottom: 24 },
+  noNoteText: { fontSize: 14, color: COLORS.textSecondary, marginBottom: 24 },
+  closeButton: { backgroundColor: COLORS.primary, paddingHorizontal: 32, paddingVertical: 16, borderRadius: 12 },
+  closeButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
 });

@@ -1,21 +1,17 @@
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
-  Modal,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-} from 'react-native';
-import { useApp } from '../context/AppContext';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Modal, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { useAuth } from '../context/AuthContext';
 import { COLORS, Post } from '../constants';
 
+const INITIAL_POSTS: Post[] = [
+  { id: '1', content: '今天感觉有点低落，想找人说说话...', likes: 12, comments: 3, createdAt: Date.now() - 86400000, liked: false, userId: 'guest' },
+  { id: '2', content: '刚刚完成了一个小目标，给自己点个赞！', likes: 25, comments: 8, createdAt: Date.now() - 172800000, liked: false, userId: 'guest' },
+  { id: '3', content: '有人和我一样失眠吗？最近总是睡不好', likes: 18, comments: 12, createdAt: Date.now() - 259200000, liked: false, userId: 'guest' },
+];
+
 export default function CommunityScreen() {
-  const { state, dispatch } = useApp();
+  const { auth } = useAuth();
+  const [posts, setPosts] = useState<Post[]>(INITIAL_POSTS);
   const [showModal, setShowModal] = useState(false);
   const [newPost, setNewPost] = useState('');
 
@@ -25,7 +21,7 @@ export default function CommunityScreen() {
       return;
     }
 
-    const userId = state.currentUser?.id || 'guest';
+    const userId = auth.user?.id || 'guest';
     const post: Post = {
       id: Date.now().toString(),
       content: newPost.trim(),
@@ -36,14 +32,16 @@ export default function CommunityScreen() {
       userId,
     };
 
-    dispatch({ type: 'ADD_POST', payload: post });
+    setPosts([post, ...posts]);
     setNewPost('');
     setShowModal(false);
     Alert.alert('发布成功', '你的心情已被分享');
   };
 
   const handleLike = (postId: string) => {
-    dispatch({ type: 'TOGGLE_LIKE', payload: postId });
+    setPosts(posts.map(post =>
+      post.id === postId ? { ...post, liked: !post.liked, likes: post.liked ? post.likes - 1 : post.likes + 1 } : post
+    ));
   };
 
   const formatTime = (timestamp: number) => {
@@ -51,7 +49,6 @@ export default function CommunityScreen() {
     const minutes = Math.floor(diff / 60000);
     const hours = Math.floor(diff / 3600000);
     const days = Math.floor(diff / 86400000);
-
     if (minutes < 1) return '刚刚';
     if (minutes < 60) return `${minutes}分钟前`;
     if (hours < 24) return `${hours}小时前`;
@@ -62,59 +59,35 @@ export default function CommunityScreen() {
   const avatars = ['😔', '😊', '🤔', '😌', '🥰', '😎', '🌟', '💪'];
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView style={styles.scrollView}>
         <View style={styles.header}>
           <Text style={styles.title}>倾诉社区</Text>
           <Text style={styles.subtitle}>匿名分享你的心情</Text>
         </View>
 
-        <View style={styles.tips}>
-          <Text style={styles.tipsText}>💡 匿名分享，无需担忧</Text>
-        </View>
+        <View style={styles.tips}><Text style={styles.tipsText}>💡 匿名分享，无需担忧</Text></View>
 
         <View style={styles.postList}>
-          {state.posts
-            .sort((a, b) => b.createdAt - a.createdAt)
-            .map((post, index) => (
-              <View key={post.id} style={styles.postCard}>
-                <View style={styles.postHeader}>
-                  <View style={styles.avatar}>
-                    <Text style={styles.avatarText}>{avatars[index % avatars.length]}</Text>
-                  </View>
-                  <View>
-                    <Text style={styles.postTime}>{formatTime(post.createdAt)}</Text>
-                    <Text style={styles.postAuthor}>匿名用户</Text>
-                  </View>
-                </View>
-                <Text style={styles.postContent}>{post.content}</Text>
-                <View style={styles.postActions}>
-                  <TouchableOpacity
-                    style={styles.actionBtn}
-                    onPress={() => handleLike(post.id)}
-                  >
-                    <Text style={[styles.actionEmoji, post.liked && styles.liked]}>
-                      {post.liked ? '❤️' : '🤍'}
-                    </Text>
-                    <Text style={[styles.actionCount, post.liked && styles.liked]}>
-                      {post.likes}
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.actionBtn}
-                    onPress={() => {
-                      Alert.alert('评论功能', '评论功能开发中...');
-                    }}
-                  >
-                    <Text style={styles.actionEmoji}>💬</Text>
-                    <Text style={styles.actionCount}>{post.comments}</Text>
-                  </TouchableOpacity>
-                </View>
+          {posts.sort((a, b) => b.createdAt - a.createdAt).map((post, index) => (
+            <View key={post.id} style={styles.postCard}>
+              <View style={styles.postHeader}>
+                <View style={styles.avatar}><Text style={styles.avatarText}>{avatars[index % avatars.length]}</Text></View>
+                <View><Text style={styles.postTime}>{formatTime(post.createdAt)}</Text><Text style={styles.postAuthor}>匿名用户</Text></View>
               </View>
-            ))}
+              <Text style={styles.postContent}>{post.content}</Text>
+              <View style={styles.postActions}>
+                <TouchableOpacity style={styles.actionBtn} onPress={() => handleLike(post.id)}>
+                  <Text style={[styles.actionEmoji, post.liked && styles.liked]}>{post.liked ? '❤️' : '🤍'}</Text>
+                  <Text style={[styles.actionCount, post.liked && styles.liked]}>{post.likes}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.actionBtn} onPress={() => Alert.alert('评论功能', '评论功能开发中...')}>
+                  <Text style={styles.actionEmoji}>💬</Text>
+                  <Text style={styles.actionCount}>{post.comments}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))}
         </View>
       </ScrollView>
 
@@ -122,23 +95,14 @@ export default function CommunityScreen() {
         <Text style={styles.fabText}>+</Text>
       </TouchableOpacity>
 
-      <Modal
-        visible={showModal}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setShowModal(false)}
-      >
+      <Modal visible={showModal} animationType="slide" transparent onRequestClose={() => setShowModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>分享心情</Text>
-              <TouchableOpacity onPress={() => setShowModal(false)}>
-                <Text style={styles.closeBtn}>✕</Text>
-              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setShowModal(false)}><Text style={styles.closeBtn}>✕</Text></TouchableOpacity>
             </View>
-            <Text style={styles.anonymousNotice}>
-              🎭 你的发言将是匿名的
-            </Text>
+            <Text style={styles.anonymousNotice}>🎭 你的发言将是匿名的</Text>
             <TextInput
               style={styles.postInput}
               placeholder="写下你的心情、烦恼或想说的话..."
@@ -159,178 +123,35 @@ export default function CommunityScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  header: {
-    padding: 20,
-    paddingTop: 40,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: COLORS.textPrimary,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: COLORS.textSecondary,
-    marginTop: 4,
-  },
-  tips: {
-    marginHorizontal: 20,
-    marginBottom: 16,
-    padding: 12,
-    backgroundColor: COLORS.primary + '15',
-    borderRadius: 8,
-  },
-  tipsText: {
-    fontSize: 14,
-    color: COLORS.primary,
-  },
-  postList: {
-    padding: 16,
-    paddingTop: 0,
-  },
-  postCard: {
-    backgroundColor: COLORS.card,
-    padding: 16,
-    borderRadius: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  postHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  avatarText: {
-    fontSize: 20,
-  },
-  postTime: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-  },
-  postAuthor: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.textPrimary,
-  },
-  postContent: {
-    fontSize: 16,
-    color: COLORS.textPrimary,
-    lineHeight: 24,
-    marginBottom: 12,
-  },
-  postActions: {
-    flexDirection: 'row',
-    borderTopWidth: 1,
-    borderTopColor: COLORS.background,
-    paddingTop: 12,
-  },
-  actionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 24,
-  },
-  actionEmoji: {
-    fontSize: 20,
-    marginRight: 6,
-  },
-  actionCount: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-  },
-  liked: {
-    color: '#EF4444',
-  },
-  fab: {
-    position: 'absolute',
-    bottom: 24,
-    right: 24,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: COLORS.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  fabText: {
-    fontSize: 32,
-    color: '#fff',
-    lineHeight: 36,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: COLORS.card,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-    maxHeight: '80%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: COLORS.textPrimary,
-  },
-  closeBtn: {
-    fontSize: 20,
-    color: COLORS.textSecondary,
-  },
-  anonymousNotice: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    marginBottom: 16,
-  },
-  postInput: {
-    backgroundColor: COLORS.background,
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 16,
-    minHeight: 120,
-    color: COLORS.textPrimary,
-    marginBottom: 16,
-  },
-  submitBtn: {
-    backgroundColor: COLORS.primary,
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  submitBtnText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
+  container: { flex: 1, backgroundColor: COLORS.background },
+  scrollView: { flex: 1 },
+  header: { padding: 20, paddingTop: 40 },
+  title: { fontSize: 28, fontWeight: 'bold', color: COLORS.textPrimary },
+  subtitle: { fontSize: 16, color: COLORS.textSecondary, marginTop: 4 },
+  tips: { marginHorizontal: 20, marginBottom: 16, padding: 12, backgroundColor: COLORS.primary + '15', borderRadius: 8 },
+  tipsText: { fontSize: 14, color: COLORS.primary },
+  postList: { padding: 16, paddingTop: 0 },
+  postCard: { backgroundColor: COLORS.card, padding: 16, borderRadius: 16, marginBottom: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 3 },
+  postHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: COLORS.background, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  avatarText: { fontSize: 20 },
+  postTime: { fontSize: 12, color: COLORS.textSecondary },
+  postAuthor: { fontSize: 14, fontWeight: '600', color: COLORS.textPrimary },
+  postContent: { fontSize: 16, color: COLORS.textPrimary, lineHeight: 24, marginBottom: 12 },
+  postActions: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: COLORS.background, paddingTop: 12 },
+  actionBtn: { flexDirection: 'row', alignItems: 'center', marginRight: 24 },
+  actionEmoji: { fontSize: 20, marginRight: 6 },
+  actionCount: { fontSize: 14, color: COLORS.textSecondary },
+  liked: { color: '#EF4444' },
+  fab: { position: 'absolute', bottom: 24, right: 24, width: 56, height: 56, borderRadius: 28, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center', shadowColor: COLORS.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 5 },
+  fabText: { fontSize: 32, color: '#fff', lineHeight: 36 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalContent: { backgroundColor: COLORS.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, maxHeight: '80%' },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  modalTitle: { fontSize: 20, fontWeight: '600', color: COLORS.textPrimary },
+  closeBtn: { fontSize: 20, color: COLORS.textSecondary },
+  anonymousNotice: { fontSize: 14, color: COLORS.textSecondary, marginBottom: 16 },
+  postInput: { backgroundColor: COLORS.background, borderRadius: 12, padding: 16, fontSize: 16, minHeight: 120, color: COLORS.textPrimary, marginBottom: 16 },
+  submitBtn: { backgroundColor: COLORS.primary, padding: 16, borderRadius: 12, alignItems: 'center' },
+  submitBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
 });

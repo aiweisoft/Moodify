@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { StatusBar, Alert } from 'expo-status-bar';
-import { Text, View, TouchableOpacity, StyleSheet } from 'react-native';
-import { NavigationContainer, NavigationContainerRef } from '@react-navigation/native';
+import React, { useState, useEffect } from 'react';
+import { StatusBar } from 'expo-status-bar';
+import { Text, View, StyleSheet } from 'react-native';
+import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { AppProvider, useApp } from './src/context/AppContext';
+import { AuthProvider, useAuth } from './src/context/AuthContext';
 import AuthScreen from './src/screens/AuthScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import DiaryScreen from './src/screens/DiaryScreen';
@@ -19,6 +19,8 @@ function TabIcon({ emoji, focused }: { emoji: string; focused: boolean }) {
 }
 
 function MainNavigator() {
+  const { logout } = useAuth();
+  
   return (
     <Tab.Navigator
       screenOptions={{
@@ -39,56 +41,43 @@ function MainNavigator() {
         },
       }}
     >
-      <Tab.Screen name="Home" component={HomeScreen} />
-      <Tab.Screen name="Diary" component={DiaryScreen} />
-      <Tab.Screen name="Community" component={CommunityScreen} />
+      <Tab.Screen
+        name="Home"
+        component={HomeScreen}
+        options={{
+          tabBarLabel: '首页',
+          tabBarIcon: ({ focused }) => <TabIcon emoji="🏠" focused={focused} />,
+        }}
+      />
+      <Tab.Screen
+        name="Diary"
+        component={DiaryScreen}
+        options={{
+          tabBarLabel: '日记',
+          tabBarIcon: ({ focused }) => <TabIcon emoji="📝" focused={focused} />,
+        }}
+      />
+      <Tab.Screen
+        name="Community"
+        component={CommunityScreen}
+        options={{
+          tabBarLabel: '社区',
+          tabBarIcon: ({ focused }) => <TabIcon emoji="💬" focused={focused} />,
+        }}
+      />
     </Tab.Navigator>
   );
 }
 
-export default function App() {
-  const navigationRef = useRef<NavigationContainerRef<any>>(null);
-  
-  return (
-    <AppProvider>
-      <StatusBar style="dark" />
-      <NavigationContainer ref={navigationRef}>
-        <AppContent navigationRef={navigationRef} />
-      </NavigationContainer>
-    </AppProvider>
-  );
-}
-
-function AppContent({ navigationRef }: { navigationRef: React.RefObject<NavigationContainerRef<any>> }) {
-  const { state, logout } = useApp();
-  const [ready, setReady] = useState(false);
-  const [showAuth, setShowAuth] = useState(false);
+function AppContent() {
+  const { auth } = useAuth();
+  const [key, setKey] = useState(0);
 
   useEffect(() => {
-    setTimeout(() => setReady(true), 100);
-  }, []);
+    setKey(k => k + 1);
+  }, [auth.user]);
 
-  useEffect(() => {
-    if (ready) {
-      if (!state.currentUser && !showAuth) {
-        setShowAuth(true);
-      } else if (state.currentUser && showAuth) {
-        setShowAuth(false);
-        navigationRef.current?.reset({
-          index: 0,
-          routes: [{ name: 'Home' }],
-        });
-      }
-    }
-  }, [state.currentUser, ready]);
-
-  useEffect(() => {
-    if (ready && !state.currentUser) {
-      setShowAuth(true);
-    }
-  }, [ready]);
-
-  if (!ready) {
+  if (auth.isLoading) {
     return (
       <View style={styles.loading}>
         <Text style={styles.logo}>Moodify</Text>
@@ -96,18 +85,21 @@ function AppContent({ navigationRef }: { navigationRef: React.RefObject<Navigati
     );
   }
 
-  if (!state.currentUser) {
-    return (
-      <View style={styles.container} key="auth-view">
-        <AuthScreen onAuthSuccess={() => {}} />
-      </View>
-    );
-  }
-
   return (
-    <View style={styles.container} key="main-view">
-      <MainNavigator />
+    <View style={styles.container} key={key}>
+      {auth.user ? <MainNavigator /> : <AuthScreen />}
     </View>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <StatusBar style="dark" />
+      <NavigationContainer>
+        <AppContent />
+      </NavigationContainer>
+    </AuthProvider>
   );
 }
 
