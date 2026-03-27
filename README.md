@@ -1,6 +1,8 @@
 # Moodify - 心情调解社交 App
 
-�一款帮助你记录情绪、倾诉心声的社交应用
+🎉 线上Demo: https://aiweisoft.github.io/Moodify/
+
+一款帮助你记录情绪、倾诉心声的社交应用
 
 ## 功能特性
 
