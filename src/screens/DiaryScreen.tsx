@@ -17,6 +17,8 @@ export default function DiaryScreen() {
   const todayMood = moods.find(m => m.date === today && m.userId === userId);
   const userMoods = moods.filter(m => m.userId === userId).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
+  const [error, setError] = useState('');
+
   useEffect(() => {
     if (todayMood) {
       const moodOption = MOOD_OPTIONS.find(m => m.label === todayMood.label);
@@ -29,7 +31,11 @@ export default function DiaryScreen() {
   }, [moods, todayMood]);
 
   const handleSave = async () => {
-    if (!selectedMood) return;
+    setError('');
+    if (!selectedMood) {
+      setError('请选择今天的心情');
+      return;
+    }
 
     const newMood: MoodEntry = {
       id: todayMood ? todayMood.id : Date.now().toString(),
@@ -90,7 +96,7 @@ export default function DiaryScreen() {
           <Text style={styles.sectionTitle}>今天感觉怎么样？</Text>
           <View style={styles.moodGrid}>
             {MOOD_OPTIONS.map((mood) => (
-              <TouchableOpacity key={mood.label} style={[styles.moodOption, selectedMood?.label === mood.label && { backgroundColor: mood.color + '20', borderColor: mood.color }]} onPress={() => setSelectedMood(mood)}>
+              <TouchableOpacity key={mood.label} style={[styles.moodOption, selectedMood?.label === mood.label && { backgroundColor: mood.color + '20', borderColor: mood.color }]} onPress={() => { setSelectedMood(mood); setError(''); }}>
                 <Text style={styles.moodEmoji}>{mood.emoji}</Text>
                 <Text style={[styles.moodLabel, selectedMood?.label === mood.label && { color: mood.color }]}>{mood.label}</Text>
               </TouchableOpacity>
@@ -98,7 +104,9 @@ export default function DiaryScreen() {
           </View>
 
           <Text style={styles.sectionTitle}>写下今天的故事</Text>
-          <TextInput style={styles.noteInput} placeholder="记录今天让你感受深刻的事情..." placeholderTextColor={COLORS.textSecondary} multiline value={note} onChangeText={setNote} textAlignVertical="top" />
+          <TextInput style={styles.noteInput} placeholder="记录今天让你感受深刻的事情..." placeholderTextColor={COLORS.textSecondary} multiline value={note} onChangeText={(text) => { setNote(text); setError(''); }} textAlignVertical="top" />
+
+          {error ? <View style={styles.errorContainer}><Text style={styles.errorText}>{error}</Text></View> : null}
 
           <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
             <Text style={styles.saveButtonText}>{todayMood ? '更新记录' : '保存'}</Text>
@@ -174,4 +182,6 @@ const styles = StyleSheet.create({
   noNoteText: { fontSize: 14, color: COLORS.textSecondary, marginBottom: 24 },
   closeButton: { backgroundColor: COLORS.primary, paddingHorizontal: 32, paddingVertical: 16, borderRadius: 12 },
   closeButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  errorContainer: { backgroundColor: '#FEE2E2', padding: 12, borderRadius: 8, marginBottom: 12 },
+  errorText: { color: '#EF4444', fontSize: 14, textAlign: 'center' },
 });
