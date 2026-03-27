@@ -21,12 +21,12 @@ export default function DiaryScreen() {
     if (todayMood) {
       const moodOption = MOOD_OPTIONS.find(m => m.label === todayMood.label);
       setSelectedMood(moodOption || null);
-      setNote(todayMood.note);
+      setNote(todayMood.note || '');
     } else {
       setSelectedMood(null);
       setNote('');
     }
-  }, [todayMood]);
+  }, [moods, todayMood]);
 
   const handleSave = async () => {
     if (!selectedMood) return;
