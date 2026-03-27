@@ -47,8 +47,15 @@ export default function HomeScreen({ navigation }: any) {
             <Text style={styles.subtitle}>今天心情怎么样？</Text>
           </View>
           <TouchableOpacity style={styles.userButton} onPress={handleLogout}>
-            <Text style={styles.userName}>{state.currentUser?.username || '游客'}</Text>
-            <Text style={styles.logoutIcon}>↪</Text>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>
+                {(state.currentUser?.username || '游')[0].toUpperCase()}
+              </Text>
+            </View>
+            <View style={styles.userInfo}>
+              <Text style={styles.userName}>{state.currentUser?.username || '游客'}</Text>
+              <Text style={styles.logoutText}>退出</Text>
+            </View>
           </TouchableOpacity>
         </View>
       </View>
@@ -292,17 +299,41 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: COLORS.card,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingLeft: 4,
+    paddingRight: 12,
+    paddingVertical: 6,
+    borderRadius: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  avatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  avatarText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  userInfo: {
+    alignItems: 'flex-start',
   },
   userName: {
     fontSize: 14,
+    fontWeight: '600',
     color: COLORS.textPrimary,
-    marginRight: 4,
   },
-  logoutIcon: {
-    fontSize: 16,
+  logoutText: {
+    fontSize: 11,
     color: COLORS.textSecondary,
+    marginTop: 1,
   },
 });
