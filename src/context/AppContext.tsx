@@ -78,7 +78,7 @@ interface AppContextType {
   getWeekMoods: () => MoodEntry[];
   login: (username: string, password: string) => { success: boolean; message: string };
   register: (username: string, password: string) => { success: boolean; message: string };
-  logout: () => void;
+  logout: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -169,6 +169,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
+    console.log('logout called, current user:', state.currentUser?.username);
+    dispatch({ type: 'SET_CURRENT_USER', payload: null });
+    dispatch({ type: 'SET_MOODS', payload: [] });
     try {
       await AsyncStorage.setItem(
         STORAGE_KEY,
@@ -181,8 +184,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.log('Error saving on logout:', error);
     }
-    dispatch({ type: 'SET_CURRENT_USER', payload: null });
-    dispatch({ type: 'SET_MOODS', payload: [] });
+    console.log('logout done, current user now:', state.currentUser);
   };
 
   const getTodayMood = (): MoodEntry | undefined => {

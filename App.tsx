@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { StatusBar, Alert } from 'expo-status-bar';
 import { Text, View, TouchableOpacity, StyleSheet } from 'react-native';
-import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
+import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { AppProvider, useApp } from './src/context/AppContext';
 import AuthScreen from './src/screens/AuthScreen';
@@ -39,58 +39,30 @@ function MainNavigator() {
         },
       }}
     >
-      <Tab.Screen
-        name="Home"
-        component={HomeScreen}
-        options={{
-          tabBarLabel: '首页',
-          tabBarIcon: ({ focused }) => (
-            <TabIcon emoji="🏠" focused={focused} />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="Diary"
-        component={DiaryScreen}
-        options={{
-          tabBarLabel: '日记',
-          tabBarIcon: ({ focused }) => (
-            <TabIcon emoji="📝" focused={focused} />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="Community"
-        component={CommunityScreen}
-        options={{
-          tabBarLabel: '社区',
-          tabBarIcon: ({ focused }) => (
-            <TabIcon emoji="💬" focused={focused} />
-          ),
-        }}
-      />
+      <Tab.Screen name="Home" component={HomeScreen} />
+      <Tab.Screen name="Diary" component={DiaryScreen} />
+      <Tab.Screen name="Community" component={CommunityScreen} />
     </Tab.Navigator>
   );
 }
 
 function AppContent() {
   const { state } = useApp();
-  const [isLoading, setIsLoading] = useState(true);
-  const [authKey, setAuthKey] = useState(0);
-  const [mainKey, setMainKey] = useState(0);
+  const [ready, setReady] = useState(false);
+  const [version, setVersion] = useState(0);
 
   useEffect(() => {
-    setTimeout(() => setIsLoading(false), 100);
+    const timer = setTimeout(() => setReady(true), 100);
+    return () => clearTimeout(timer);
   }, []);
 
   useEffect(() => {
-    if (!isLoading) {
-      setAuthKey(prev => prev + 1);
-      setMainKey(prev => prev + 1);
+    if (ready) {
+      setVersion(v => v + 1);
     }
-  }, [state.currentUser, isLoading]);
+  }, [state.currentUser, ready]);
 
-  if (isLoading) {
+  if (!ready) {
     return (
       <View style={styles.loading}>
         <Text style={styles.logo}>Moodify</Text>
@@ -98,13 +70,13 @@ function AppContent() {
     );
   }
 
-  if (!state.currentUser) {
-    return <AuthScreen key={`auth-${authKey}`} onAuthSuccess={() => {}} />;
-  }
-
   return (
-    <View style={styles.container} key={`main-${mainKey}`}>
-      <MainNavigator />
+    <View style={styles.container}>
+      {version > 0 && !state.currentUser ? (
+        <AuthScreen key="auth-screen" onAuthSuccess={() => {}} />
+      ) : version > 0 && state.currentUser ? (
+        <MainNavigator key={`nav-${state.currentUser.id}`} />
+      ) : null}
     </View>
   );
 }
