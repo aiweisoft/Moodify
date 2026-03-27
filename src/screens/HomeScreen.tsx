@@ -1,13 +1,18 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { useMoods } from '../context/MoodContext';
 import { COLORS, MOOD_OPTIONS } from '../constants';
 
 export default function HomeScreen({ navigation }: any) {
-  const { auth } = useAuth();
+  const { auth, logout } = useAuth();
   const { moods } = useMoods();
   const [, forceUpdate] = useState(0);
+  const logoutRef = useRef(logout);
+
+  useEffect(() => {
+    logoutRef.current = logout;
+  }, [logout]);
 
   useEffect(() => {
     forceUpdate(n => n + 1);
@@ -42,10 +47,8 @@ export default function HomeScreen({ navigation }: any) {
     return '晚上好';
   };
 
-  const doLogout = () => {
-    if (auth && auth.logout) {
-      auth.logout();
-    }
+  const handleLogout = () => {
+    logoutRef.current();
   };
 
   return (
@@ -56,7 +59,7 @@ export default function HomeScreen({ navigation }: any) {
             <Text style={styles.greeting}>{getGreeting()} 👋</Text>
             <Text style={styles.subtitle}>今天心情怎么样？</Text>
           </View>
-          <TouchableOpacity style={styles.userButton} onPress={doLogout}>
+          <TouchableOpacity style={styles.userButton} onPress={handleLogout}>
             <View style={styles.avatar}>
               <Text style={styles.avatarText}>{(auth.user?.username || '游')[0].toUpperCase()}</Text>
             </View>

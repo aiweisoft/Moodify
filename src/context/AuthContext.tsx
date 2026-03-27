@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { User } from '../constants';
 
@@ -51,24 +51,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const saveAuth = (newAuth: AuthState) => {
+  const handleLogout = () => {
+    const newAuth = { ...auth, user: null };
     setAuth(newAuth);
     AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({
-      user: newAuth.user,
-      users: newAuth.users,
+      user: null,
+      users: auth.users,
     })).catch(e => console.log('Error saving auth:', e));
   };
 
-  const login = useCallback((username: string, password: string): { success: boolean; message: string } => {
+  const login = (username: string, password: string): { success: boolean; message: string } => {
     const user = auth.users.find(u => u.username === username && u.password === password);
     if (user) {
-      saveAuth({ ...auth, user });
+      const newAuth = { ...auth, user };
+      setAuth(newAuth);
+      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({
+        user,
+        users: auth.users,
+      })).catch(e => console.log('Error saving auth:', e));
       return { success: true, message: '登录成功' };
     }
     return { success: false, message: '用户名或密码错误' };
-  }, [auth.users]);
+  };
 
-  const register = useCallback((username: string, password: string): { success: boolean; message: string } => {
+  const register = (username: string, password: string): { success: boolean; message: string } => {
     if (!username.trim() || !password.trim()) {
       return { success: false, message: '用户名和密码不能为空' };
     }
@@ -87,19 +93,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       password,
       createdAt: Date.now(),
     };
-    saveAuth({
+    const newAuth = {
       user: newUser,
       users: [...auth.users, newUser],
-    });
+    };
+    setAuth(newAuth);
+    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({
+      user: newUser,
+      users: newAuth.users,
+    })).catch(e => console.log('Error saving auth:', e));
     return { success: true, message: '注册成功' };
-  }, [auth.users]);
-
-  const logout = useCallback(() => {
-    saveAuth({ ...auth, user: null });
-  }, [auth.users]);
+  };
 
   return (
-    <AuthContext.Provider value={{ auth, login, register, logout }}>
+    <AuthContext.Provider value={{ auth, login, register, logout: handleLogout }}>
       {children}
     </AuthContext.Provider>
   );
