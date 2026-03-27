@@ -42,9 +42,9 @@ export default function HomeScreen({ navigation }: any) {
     return '晚上好';
   };
 
-  const handleLogout = () => logout();
-
   const { logout } = auth;
+
+  const handleLogout = () => logout();
 
   return (
     <ScrollView style={styles.container}>
