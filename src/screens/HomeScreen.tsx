@@ -36,9 +36,7 @@ export default function HomeScreen({ navigation }: any) {
         { 
           text: '退出', 
           style: 'destructive', 
-          onPress: () => {
-            logout();
-          },
+          onPress: () => logout(),
         },
       ]
     );

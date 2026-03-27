@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { StatusBar, Alert } from 'expo-status-bar';
 import { Text, View, TouchableOpacity, StyleSheet } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { AppProvider, useApp } from './src/context/AppContext';
 import AuthScreen from './src/screens/AuthScreen';
@@ -19,83 +19,76 @@ function TabIcon({ emoji, focused }: { emoji: string; focused: boolean }) {
 }
 
 function MainNavigator() {
-  const { state, logout } = useApp();
-  const [showMenu, setShowMenu] = useState(false);
-
-  const handleLogout = () => {
-    Alert.alert(
-      '确认退出',
-      '确定要退出登录吗？',
-      [
-        { text: '取消', style: 'cancel' },
-        { text: '退出', style: 'destructive', onPress: logout },
-      ]
-    );
-  };
-
   return (
-    <>
-      <Tab.Navigator
-        screenOptions={{
-          headerShown: false,
-          tabBarActiveTintColor: COLORS.primary,
-          tabBarInactiveTintColor: COLORS.textSecondary,
-          tabBarStyle: {
-            backgroundColor: COLORS.card,
-            borderTopWidth: 0,
-            elevation: 8,
-            height: 60,
-            paddingBottom: 8,
-            paddingTop: 8,
-          },
-          tabBarLabelStyle: {
-            fontSize: 12,
-            fontWeight: '600',
-          },
+    <Tab.Navigator
+      screenOptions={{
+        headerShown: false,
+        tabBarActiveTintColor: COLORS.primary,
+        tabBarInactiveTintColor: COLORS.textSecondary,
+        tabBarStyle: {
+          backgroundColor: COLORS.card,
+          borderTopWidth: 0,
+          elevation: 8,
+          height: 60,
+          paddingBottom: 8,
+          paddingTop: 8,
+        },
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: '600',
+        },
+      }}
+    >
+      <Tab.Screen
+        name="Home"
+        component={HomeScreen}
+        options={{
+          tabBarLabel: '首页',
+          tabBarIcon: ({ focused }) => (
+            <TabIcon emoji="🏠" focused={focused} />
+          ),
         }}
-      >
-        <Tab.Screen
-          name="Home"
-          component={HomeScreen}
-          options={{
-            tabBarLabel: '首页',
-            tabBarIcon: ({ focused }) => (
-              <TabIcon emoji="🏠" focused={focused} />
-            ),
-          }}
-        />
-        <Tab.Screen
-          name="Diary"
-          component={DiaryScreen}
-          options={{
-            tabBarLabel: '日记',
-            tabBarIcon: ({ focused }) => (
-              <TabIcon emoji="📝" focused={focused} />
-            ),
-          }}
-        />
-        <Tab.Screen
-          name="Community"
-          component={CommunityScreen}
-          options={{
-            tabBarLabel: '社区',
-            tabBarIcon: ({ focused }) => (
-              <TabIcon emoji="💬" focused={focused} />
-            ),
-          }}
-        />
-      </Tab.Navigator>
-    </>
+      />
+      <Tab.Screen
+        name="Diary"
+        component={DiaryScreen}
+        options={{
+          tabBarLabel: '日记',
+          tabBarIcon: ({ focused }) => (
+            <TabIcon emoji="📝" focused={focused} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="Community"
+        component={CommunityScreen}
+        options={{
+          tabBarLabel: '社区',
+          tabBarIcon: ({ focused }) => (
+            <TabIcon emoji="💬" focused={focused} />
+          ),
+        }}
+      />
+    </Tab.Navigator>
   );
 }
 
 function AppContent() {
   const { state } = useApp();
   const [isLoading, setIsLoading] = useState(true);
+  const [authKey, setAuthKey] = useState(0);
+  const [mainKey, setMainKey] = useState(0);
 
   useEffect(() => {
     setTimeout(() => setIsLoading(false), 100);
   }, []);
+
+  useEffect(() => {
+    if (!isLoading) {
+      setAuthKey(prev => prev + 1);
+      setMainKey(prev => prev + 1);
+    }
+  }, [state.currentUser, isLoading]);
 
   if (isLoading) {
     return (
@@ -106,11 +99,11 @@ function AppContent() {
   }
 
   if (!state.currentUser) {
-    return <AuthScreen key="auth" onAuthSuccess={() => {}} />;
+    return <AuthScreen key={`auth-${authKey}`} onAuthSuccess={() => {}} />;
   }
 
   return (
-    <View style={styles.container} key={state.currentUser.id}>
+    <View style={styles.container} key={`main-${mainKey}`}>
       <MainNavigator />
     </View>
   );
