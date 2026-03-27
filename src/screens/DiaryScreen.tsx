@@ -9,6 +9,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Modal,
 } from 'react-native';
 import { useApp } from '../context/AppContext';
 import { COLORS, MOOD_OPTIONS, MoodEntry } from '../constants';
@@ -17,7 +18,18 @@ export default function DiaryScreen() {
   const { state, dispatch } = useApp();
   const [selectedMood, setSelectedMood] = useState<typeof MOOD_OPTIONS[number] | null>(null);
   const [note, setNote] = useState('');
-  const [showHistory, setShowHistory] = useState(true);
+  const [showHistory, setShowHistory] = useState(false);
+  const [viewingMood, setViewingMood] = useState<MoodEntry | null>(null);
+
+  const userId = state.currentUser?.id || 'guest';
+  const today = new Date().toISOString().split('T')[0];
+  const todayMood = state.moods.find(
+    m => m.date === today && m.userId === userId
+  );
+
+  const userMoods = state.moods
+    .filter(m => m.userId === userId)
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const handleSave = () => {
     if (!selectedMood) {
@@ -25,12 +37,8 @@ export default function DiaryScreen() {
       return;
     }
 
-    const userId = state.currentUser?.id || 'guest';
-    const today = new Date().toISOString().split('T')[0];
-    const existingMood = state.moods.find(m => m.date === today && m.userId === userId);
-
     const newMood: MoodEntry = {
-      id: existingMood ? existingMood.id : Date.now().toString(),
+      id: todayMood ? todayMood.id : Date.now().toString(),
       date: today,
       emoji: selectedMood.emoji,
       label: selectedMood.label,
@@ -39,7 +47,7 @@ export default function DiaryScreen() {
       userId,
     };
 
-    if (existingMood) {
+    if (todayMood) {
       dispatch({
         type: 'SET_MOODS',
         payload: state.moods.map(m => m.date === today && m.userId === userId ? newMood : m),
@@ -54,6 +62,51 @@ export default function DiaryScreen() {
     setSelectedMood(null);
   };
 
+  const handleDelete = () => {
+    Alert.alert(
+      '删除确认',
+      '确定要删除今天的心情记录吗？',
+      [
+        { text: '取消', style: 'cancel' },
+        {
+          text: '删除',
+          style: 'destructive',
+          onPress: () => {
+            dispatch({
+              type: 'SET_MOODS',
+              payload: state.moods.filter(m => !(m.date === today && m.userId === userId)),
+            });
+            setSelectedMood(null);
+            setNote('');
+          },
+        },
+      ]
+    );
+  };
+
+  const handleViewHistory = (mood: MoodEntry) => {
+    setViewingMood(mood);
+  };
+
+  const handleCloseView = () => {
+    if (viewingMood) {
+      dispatch({
+        type: 'SET_MOODS',
+        payload: state.moods.filter(m => m.id !== viewingMood.id),
+      });
+    }
+    setViewingMood(null);
+    setShowHistory(false);
+  };
+
+  const handleEditToday = () => {
+    if (todayMood) {
+      const moodOption = MOOD_OPTIONS.find(m => m.label === todayMood.label);
+      setSelectedMood(moodOption || null);
+      setNote(todayMood.note);
+    }
+  };
+
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
     const today = new Date();
@@ -65,15 +118,6 @@ export default function DiaryScreen() {
 
     return `${date.getMonth() + 1}月${date.getDate()}日`;
   };
-
-  const userId = state.currentUser?.id || 'guest';
-  const todayMood = state.moods.find(
-    m => m.date === new Date().toISOString().split('T')[0] && m.userId === userId
-  );
-
-  const userMoods = state.moods
-    .filter(m => m.userId === userId)
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   return (
     <KeyboardAvoidingView
@@ -130,6 +174,12 @@ export default function DiaryScreen() {
               {todayMood ? '更新记录' : '保存'}
             </Text>
           </TouchableOpacity>
+
+          {todayMood && (
+            <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
+              <Text style={styles.deleteButtonText}>删除今天记录</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         <TouchableOpacity
@@ -144,8 +194,13 @@ export default function DiaryScreen() {
           <View style={styles.historyList}>
             {userMoods.length > 0 ? (
               userMoods
+                .filter(m => m.date !== today)
                 .map((mood) => (
-                  <View key={mood.id} style={styles.historyItem}>
+                  <TouchableOpacity
+                    key={mood.id}
+                    style={styles.historyItem}
+                    onPress={() => handleViewHistory(mood)}
+                  >
                     <View style={styles.historyLeft}>
                       <Text style={styles.historyEmoji}>{mood.emoji}</Text>
                       <View>
@@ -158,16 +213,40 @@ export default function DiaryScreen() {
                         {mood.note}
                       </Text>
                     ) : null}
-                  </View>
+                    <Text style={styles.viewHint}>点击查看</Text>
+                  </TouchableOpacity>
                 ))
             ) : (
               <View style={styles.emptyHistory}>
-                <Text style={styles.emptyHistoryText}>还没有记录</Text>
+                <Text style={styles.emptyHistoryText}>还没有历史记录</Text>
               </View>
             )}
           </View>
         )}
       </ScrollView>
+
+      <Modal
+        visible={!!viewingMood}
+        animationType="slide"
+        transparent
+        onRequestClose={handleCloseView}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalEmoji}>{viewingMood?.emoji}</Text>
+            <Text style={styles.modalMood}>{viewingMood?.label}</Text>
+            <Text style={styles.modalDate}>{formatDate(viewingMood?.date || '')}</Text>
+            {viewingMood?.note ? (
+              <Text style={styles.modalNote}>{viewingMood.note}</Text>
+            ) : (
+              <Text style={styles.noNoteText}>暂无记录</Text>
+            )}
+            <TouchableOpacity style={styles.closeButton} onPress={handleCloseView}>
+              <Text style={styles.closeButtonText}>查看后自动删除</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -250,9 +329,21 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
+    marginBottom: 12,
   },
   saveButtonText: {
     color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  deleteButton: {
+    backgroundColor: '#FEE2E2',
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  deleteButtonText: {
+    color: '#EF4444',
     fontSize: 16,
     fontWeight: '600',
   },
@@ -283,7 +374,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
   },
   historyLeft: {
     flexDirection: 'row',
@@ -309,6 +400,11 @@ const styles = StyleSheet.create({
     marginLeft: 12,
     textAlign: 'right',
   },
+  viewHint: {
+    fontSize: 12,
+    color: COLORS.primary,
+    marginLeft: 8,
+  },
   emptyHistory: {
     padding: 40,
     alignItems: 'center',
@@ -316,5 +412,57 @@ const styles = StyleSheet.create({
   emptyHistoryText: {
     fontSize: 16,
     color: COLORS.textSecondary,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalContent: {
+    backgroundColor: COLORS.card,
+    borderRadius: 24,
+    padding: 32,
+    width: '100%',
+    alignItems: 'center',
+  },
+  modalEmoji: {
+    fontSize: 64,
+    marginBottom: 16,
+  },
+  modalMood: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: COLORS.textPrimary,
+    marginBottom: 8,
+  },
+  modalDate: {
+    fontSize: 16,
+    color: COLORS.textSecondary,
+    marginBottom: 16,
+  },
+  modalNote: {
+    fontSize: 16,
+    color: COLORS.textPrimary,
+    lineHeight: 24,
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  noNoteText: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    marginBottom: 24,
+  },
+  closeButton: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 32,
+    paddingVertical: 16,
+    borderRadius: 12,
+  },
+  closeButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
