@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { Text, View, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
@@ -50,12 +50,27 @@ export default function App() {
 
 function AppContent() {
   const { auth } = useAuth();
+  const isLoggedIn = useRef(auth.user !== null);
+  const [showLogin, setShowLogin] = useState(true);
+
+  useEffect(() => {
+    if (auth.isLoading) {
+      setShowLogin(true);
+    } else {
+      isLoggedIn.current = auth.user !== null;
+      setShowLogin(!isLoggedIn.current);
+    }
+  }, [auth.user, auth.isLoading]);
 
   if (auth.isLoading) {
     return <View style={styles.loading}><Text style={styles.logo}>Moodify</Text></View>;
   }
 
-  return <View style={styles.container}>{auth.user ? <MainNavigator /> : <AuthScreen />}</View>;
+  if (showLogin || !auth.user) {
+    return <AuthScreen />;
+  }
+
+  return <MainNavigator />;
 }
 
 const styles = StyleSheet.create({
