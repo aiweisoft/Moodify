@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { Text, View, StyleSheet, TouchableOpacity, Button } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { Text, View, StyleSheet } from 'react-native';
+import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { MoodProvider } from './src/context/MoodContext';
@@ -40,7 +40,9 @@ export default function App() {
     <AuthProvider>
       <MoodProvider>
         <StatusBar style="dark" />
-        <AppContent />
+        <NavigationContainer>
+          <AppContent />
+        </NavigationContainer>
       </MoodProvider>
     </AuthProvider>
   );
@@ -48,15 +50,21 @@ export default function App() {
 
 function AppContent() {
   const { auth } = useAuth();
-  const [key, setKey] = useState(0);
+  const [screenKey, setScreenKey] = useState(0);
+
+  useEffect(() => {
+    setScreenKey(prev => prev + 1);
+  }, [auth.user]);
 
   if (auth.isLoading) {
     return <View style={styles.loading}><Text style={styles.logo}>Moodify</Text></View>;
   }
 
-  const content = auth.user ? <MainNavigator key={key} /> : <AuthScreen />;
-  
-  return <View style={styles.container}>{content}</View>;
+  return (
+    <View style={styles.container} key={screenKey}>
+      {auth.user ? <MainNavigator /> : <AuthScreen />}
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
