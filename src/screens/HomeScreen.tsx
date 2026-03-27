@@ -42,9 +42,11 @@ export default function HomeScreen({ navigation }: any) {
     return '晚上好';
   };
 
-  const { logout } = auth;
-
-  const handleLogout = () => logout();
+  const doLogout = () => {
+    if (auth && auth.logout) {
+      auth.logout();
+    }
+  };
 
   return (
     <ScrollView style={styles.container}>
@@ -54,7 +56,7 @@ export default function HomeScreen({ navigation }: any) {
             <Text style={styles.greeting}>{getGreeting()} 👋</Text>
             <Text style={styles.subtitle}>今天心情怎么样？</Text>
           </View>
-          <TouchableOpacity style={styles.userButton} onPress={handleLogout}>
+          <TouchableOpacity style={styles.userButton} onPress={doLogout}>
             <View style={styles.avatar}>
               <Text style={styles.avatarText}>{(auth.user?.username || '游')[0].toUpperCase()}</Text>
             </View>

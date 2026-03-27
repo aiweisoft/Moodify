@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { User, MoodEntry, Post } from '../constants';
+import { User } from '../constants';
 
 interface AuthState {
   user: User | null;
@@ -59,16 +59,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })).catch(e => console.log('Error saving auth:', e));
   };
 
-  const login = (username: string, password: string): { success: boolean; message: string } => {
+  const login = useCallback((username: string, password: string): { success: boolean; message: string } => {
     const user = auth.users.find(u => u.username === username && u.password === password);
     if (user) {
       saveAuth({ ...auth, user });
       return { success: true, message: '登录成功' };
     }
     return { success: false, message: '用户名或密码错误' };
-  };
+  }, [auth.users]);
 
-  const register = (username: string, password: string): { success: boolean; message: string } => {
+  const register = useCallback((username: string, password: string): { success: boolean; message: string } => {
     if (!username.trim() || !password.trim()) {
       return { success: false, message: '用户名和密码不能为空' };
     }
@@ -92,13 +92,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       users: [...auth.users, newUser],
     });
     return { success: true, message: '注册成功' };
-  };
+  }, [auth.users]);
 
-  const logout = () => {
-    console.log('Logging out, current user:', auth.user?.username);
+  const logout = useCallback(() => {
     saveAuth({ ...auth, user: null });
-    console.log('Logout complete, new user:', null);
-  };
+  }, [auth.users]);
 
   return (
     <AuthContext.Provider value={{ auth, login, register, logout }}>

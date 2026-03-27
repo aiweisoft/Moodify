@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { Text, View, StyleSheet } from 'react-native';
+import { Text, View, StyleSheet, TouchableOpacity, Button } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
@@ -40,9 +40,7 @@ export default function App() {
     <AuthProvider>
       <MoodProvider>
         <StatusBar style="dark" />
-        <NavigationContainer>
-          <AppContent />
-        </NavigationContainer>
+        <AppContent />
       </MoodProvider>
     </AuthProvider>
   );
@@ -50,27 +48,15 @@ export default function App() {
 
 function AppContent() {
   const { auth } = useAuth();
-  const isLoggedIn = useRef(auth.user !== null);
-  const [showLogin, setShowLogin] = useState(true);
-
-  useEffect(() => {
-    if (auth.isLoading) {
-      setShowLogin(true);
-    } else {
-      isLoggedIn.current = auth.user !== null;
-      setShowLogin(!isLoggedIn.current);
-    }
-  }, [auth.user, auth.isLoading]);
+  const [key, setKey] = useState(0);
 
   if (auth.isLoading) {
     return <View style={styles.loading}><Text style={styles.logo}>Moodify</Text></View>;
   }
 
-  if (showLogin || !auth.user) {
-    return <AuthScreen />;
-  }
-
-  return <MainNavigator />;
+  const content = auth.user ? <MainNavigator key={key} /> : <AuthScreen />;
+  
+  return <View style={styles.container}>{content}</View>;
 }
 
 const styles = StyleSheet.create({
