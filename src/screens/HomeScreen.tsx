@@ -1,39 +1,22 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Modal } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
 import { useAuth } from '../context/AuthContext';
+import { useMoods } from '../context/MoodContext';
 import { COLORS, MOOD_OPTIONS } from '../constants';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const { width } = Dimensions.get('window');
-const MOODS_KEY = '@moodify_moods';
 
 export default function HomeScreen({ navigation }: any) {
-  const { auth, logout } = useAuth();
-  const [moods, setMoods] = useState<any[]>([]);
+  const { auth } = useAuth();
+  const { moods } = useMoods();
   const [, forceUpdate] = useState(0);
 
   useEffect(() => {
-    loadMoods();
-  }, []);
-
-  useEffect(() => {
     forceUpdate(n => n + 1);
-  }, [auth.user]);
-
-  const loadMoods = async () => {
-    try {
-      const data = await AsyncStorage.getItem(MOODS_KEY);
-      if (data) {
-        setMoods(JSON.parse(data));
-      }
-    } catch (error) {
-      console.log('Error loading moods:', error);
-    }
-  };
+  }, [moods]);
 
   const userId = auth.user?.id;
   const today = new Date().toISOString().split('T')[0];
   const todayMood = moods.find(m => m.date === today && m.userId === userId);
+  
   const weekMoods = moods.filter(m => {
     if (!userId || m.userId !== userId) return false;
     const moodDate = new Date(m.date);
@@ -59,32 +42,9 @@ export default function HomeScreen({ navigation }: any) {
     return '晚上好';
   };
 
-  const handleLogout = () => {
-    logout();
-  };
+  const handleLogout = () => logout();
 
-  const handleLogoutWithConfirm = () => {
-    const ConfirmModal = () => (
-      <Modal visible={true} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>确认退出</Text>
-            <Text style={styles.modalText}>确定要退出登录吗？</Text>
-            <View style={styles.modalButtons}>
-              <TouchableOpacity style={styles.modalCancelBtn} onPress={() => {}}>
-                <Text style={styles.modalCancelText}>取消</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.modalConfirmBtn} onPress={handleLogout}>
-                <Text style={styles.modalConfirmText}>退出</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-    );
-    // Simple logout without confirmation for now
-    logout();
-  };
+  const { logout } = auth;
 
   return (
     <ScrollView style={styles.container}>
@@ -94,11 +54,9 @@ export default function HomeScreen({ navigation }: any) {
             <Text style={styles.greeting}>{getGreeting()} 👋</Text>
             <Text style={styles.subtitle}>今天心情怎么样？</Text>
           </View>
-          <TouchableOpacity style={styles.userButton} onPress={handleLogoutWithConfirm}>
+          <TouchableOpacity style={styles.userButton} onPress={handleLogout}>
             <View style={styles.avatar}>
-              <Text style={styles.avatarText}>
-                {(auth.user?.username || '游')[0].toUpperCase()}
-              </Text>
+              <Text style={styles.avatarText}>{(auth.user?.username || '游')[0].toUpperCase()}</Text>
             </View>
             <View style={styles.userInfo}>
               <Text style={styles.userName}>{auth.user?.username || '游客'}</Text>
@@ -114,24 +72,15 @@ export default function HomeScreen({ navigation }: any) {
           <View style={styles.todayMoodRow}>
             <Text style={styles.todayEmoji}>{getMoodEmoji(todayMood.label)}</Text>
             <View style={styles.todayInfo}>
-              <Text style={[styles.todayLabel, { color: getMoodColor(todayMood.label) }]}>
-                {todayMood.label}
-              </Text>
-              {todayMood.note ? (
-                <Text style={styles.todayNote} numberOfLines={2}>
-                  {todayMood.note}
-                </Text>
-              ) : null}
+              <Text style={[styles.todayLabel, { color: getMoodColor(todayMood.label) }]}>{todayMood.label}</Text>
+              {todayMood.note ? <Text style={styles.todayNote} numberOfLines={2}>{todayMood.note}</Text> : null}
             </View>
           </View>
         ) : (
           <View style={styles.emptyState}>
             <Text style={styles.emptyEmoji}>🤔</Text>
             <Text style={styles.emptyText}>还没有记录今天的心情</Text>
-            <TouchableOpacity
-              style={styles.recordButton}
-              onPress={() => navigation.navigate('Diary')}
-            >
+            <TouchableOpacity style={styles.recordButton} onPress={() => navigation.navigate('Diary')}>
               <Text style={styles.recordButtonText}>立即记录</Text>
             </TouchableOpacity>
           </View>
@@ -148,15 +97,10 @@ export default function HomeScreen({ navigation }: any) {
               const dateStr = date.toISOString().split('T')[0];
               const mood = moods.find(m => m.date === dateStr && m.userId === userId);
               const dayNames = ['日', '一', '二', '三', '四', '五', '六'];
-              
               return (
                 <View key={index} style={styles.dayColumn}>
                   <View style={styles.dayBar}>
-                    {mood ? (
-                      <Text style={styles.dayEmoji}>{getMoodEmoji(mood.label)}</Text>
-                    ) : (
-                      <Text style={styles.dayEmpty}>-</Text>
-                    )}
+                    {mood ? <Text style={styles.dayEmoji}>{getMoodEmoji(mood.label)}</Text> : <Text style={styles.dayEmpty}>-</Text>}
                   </View>
                   <Text style={styles.dayLabel}>{dayNames[date.getDay()]}</Text>
                 </View>
@@ -169,17 +113,11 @@ export default function HomeScreen({ navigation }: any) {
       </View>
 
       <View style={styles.quickActions}>
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => navigation.navigate('Diary')}
-        >
+        <TouchableOpacity style={styles.actionButton} onPress={() => navigation.navigate('Diary')}>
           <Text style={styles.actionEmoji}>📝</Text>
           <Text style={styles.actionText}>写日记</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => navigation.navigate('Community')}
-        >
+        <TouchableOpacity style={styles.actionButton} onPress={() => navigation.navigate('Community')}>
           <Text style={styles.actionEmoji}>💬</Text>
           <Text style={styles.actionText}>倾诉</Text>
         </TouchableOpacity>
@@ -193,10 +131,7 @@ const styles = StyleSheet.create({
   header: { padding: 20, paddingTop: 40 },
   greeting: { fontSize: 28, fontWeight: 'bold', color: COLORS.textPrimary },
   subtitle: { fontSize: 16, color: COLORS.textSecondary, marginTop: 4 },
-  todayCard: {
-    margin: 16, padding: 20, backgroundColor: COLORS.card, borderRadius: 16,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 3,
-  },
+  todayCard: { margin: 16, padding: 20, backgroundColor: COLORS.card, borderRadius: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 3 },
   cardTitle: { fontSize: 18, fontWeight: '600', color: COLORS.textPrimary, marginBottom: 16 },
   todayMoodRow: { flexDirection: 'row', alignItems: 'center' },
   todayEmoji: { fontSize: 48, marginRight: 16 },
@@ -208,48 +143,23 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 16, color: COLORS.textSecondary, marginBottom: 16 },
   recordButton: { backgroundColor: COLORS.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 24 },
   recordButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  weekCard: {
-    margin: 16, marginTop: 0, padding: 20, backgroundColor: COLORS.card, borderRadius: 16,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 3,
-  },
+  weekCard: { margin: 16, marginTop: 0, padding: 20, backgroundColor: COLORS.card, borderRadius: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 3 },
   weekChart: { flexDirection: 'row', justifyContent: 'space-between' },
   dayColumn: { alignItems: 'center' },
-  dayBar: {
-    width: 36, height: 50, justifyContent: 'center', alignItems: 'center',
-    backgroundColor: COLORS.background, borderRadius: 8, marginBottom: 8,
-  },
+  dayBar: { width: 36, height: 50, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.background, borderRadius: 8, marginBottom: 8 },
   dayEmoji: { fontSize: 24 },
   dayEmpty: { fontSize: 16, color: COLORS.textSecondary },
   dayLabel: { fontSize: 12, color: COLORS.textSecondary },
   noDataText: { textAlign: 'center', color: COLORS.textSecondary, padding: 20 },
   quickActions: { flexDirection: 'row', padding: 16, gap: 12 },
-  actionButton: {
-    flex: 1, backgroundColor: COLORS.card, padding: 20, borderRadius: 16, alignItems: 'center',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 3,
-  },
+  actionButton: { flex: 1, backgroundColor: COLORS.card, padding: 20, borderRadius: 16, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 3 },
   actionEmoji: { fontSize: 32, marginBottom: 8 },
   actionText: { fontSize: 16, fontWeight: '600', color: COLORS.textPrimary },
   headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  userButton: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.card,
-    paddingLeft: 4, paddingRight: 12, paddingVertical: 6, borderRadius: 24,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 2,
-  },
-  avatar: {
-    width: 32, height: 32, borderRadius: 16, backgroundColor: COLORS.primary,
-    justifyContent: 'center', alignItems: 'center', marginRight: 8,
-  },
+  userButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.card, paddingLeft: 4, paddingRight: 12, paddingVertical: 6, borderRadius: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 2 },
+  avatar: { width: 32, height: 32, borderRadius: 16, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center', marginRight: 8 },
   avatarText: { fontSize: 14, fontWeight: 'bold', color: '#fff' },
   userInfo: { alignItems: 'flex-start' },
   userName: { fontSize: 14, fontWeight: '600', color: COLORS.textPrimary },
   logoutText: { fontSize: 11, color: COLORS.textSecondary, marginTop: 1 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  modalContent: { backgroundColor: COLORS.card, borderRadius: 16, padding: 24, width: '80%' },
-  modalTitle: { fontSize: 18, fontWeight: 'bold', color: COLORS.textPrimary, marginBottom: 12, textAlign: 'center' },
-  modalText: { fontSize: 14, color: COLORS.textSecondary, marginBottom: 20, textAlign: 'center' },
-  modalButtons: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
-  modalCancelBtn: { flex: 1, padding: 14, borderRadius: 8, backgroundColor: COLORS.background, alignItems: 'center' },
-  modalCancelText: { fontSize: 16, color: COLORS.textSecondary },
-  modalConfirmBtn: { flex: 1, padding: 14, borderRadius: 8, backgroundColor: '#EF4444', alignItems: 'center' },
-  modalConfirmText: { fontSize: 16, fontWeight: '600', color: '#fff' },
 });

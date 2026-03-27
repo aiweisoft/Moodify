@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { Text, View, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
+import { MoodProvider } from './src/context/MoodContext';
 import AuthScreen from './src/screens/AuthScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import DiaryScreen from './src/screens/DiaryScreen';
@@ -13,9 +14,7 @@ import { COLORS } from './src/constants';
 const Tab = createBottomTabNavigator();
 
 function TabIcon({ emoji, focused }: { emoji: string; focused: boolean }) {
-  return (
-    <Text style={{ fontSize: 24, opacity: focused ? 1 : 0.5 }}>{emoji}</Text>
-  );
+  return <Text style={{ fontSize: 24, opacity: focused ? 1 : 0.5 }}>{emoji}</Text>;
 }
 
 function MainNavigator() {
@@ -25,18 +24,8 @@ function MainNavigator() {
         headerShown: false,
         tabBarActiveTintColor: COLORS.primary,
         tabBarInactiveTintColor: COLORS.textSecondary,
-        tabBarStyle: {
-          backgroundColor: COLORS.card,
-          borderTopWidth: 0,
-          elevation: 8,
-          height: 60,
-          paddingBottom: 8,
-          paddingTop: 8,
-        },
-        tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '600',
-        },
+        tabBarStyle: { backgroundColor: COLORS.card, borderTopWidth: 0, elevation: 8, height: 60, paddingBottom: 8, paddingTop: 8 },
+        tabBarLabelStyle: { fontSize: 12, fontWeight: '600' },
       }}
     >
       <Tab.Screen name="Home" component={HomeScreen} options={{ tabBarLabel: '首页', tabBarIcon: ({ focused }) => <TabIcon emoji="🏠" focused={focused} /> }} />
@@ -49,40 +38,24 @@ function MainNavigator() {
 export default function App() {
   return (
     <AuthProvider>
-      <StatusBar style="dark" />
-      <NavigationContainer>
-        <AppContent />
-      </NavigationContainer>
+      <MoodProvider>
+        <StatusBar style="dark" />
+        <NavigationContainer>
+          <AppContent />
+        </NavigationContainer>
+      </MoodProvider>
     </AuthProvider>
   );
 }
 
 function AppContent() {
   const { auth } = useAuth();
-  const [renderKey, setRenderKey] = useState(0);
-  const [lastUserId, setLastUserId] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (auth.isLoading) return;
-    if (lastUserId !== (auth.user?.id || null)) {
-      setLastUserId(auth.user?.id || null);
-      setRenderKey(k => k + 1);
-    }
-  }, [auth.user, auth.isLoading, lastUserId]);
 
   if (auth.isLoading) {
-    return (
-      <View style={styles.loading}>
-        <Text style={styles.logo}>Moodify</Text>
-      </View>
-    );
+    return <View style={styles.loading}><Text style={styles.logo}>Moodify</Text></View>;
   }
 
-  return (
-    <View style={styles.container}>
-      {auth.user ? <MainNavigator /> : <AuthScreen />}
-    </View>
-  );
+  return <View style={styles.container}>{auth.user ? <MainNavigator /> : <AuthScreen />}</View>;
 }
 
 const styles = StyleSheet.create({

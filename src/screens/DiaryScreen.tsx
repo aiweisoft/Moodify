@@ -1,54 +1,35 @@
 import React, { useState, useEffect } from 'react';
-import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert,
-  KeyboardAvoidingView, Platform, Modal,
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Modal, KeyboardAvoidingView, Platform } from 'react-native';
 import { useAuth } from '../context/AuthContext';
+import { useMoods } from '../context/MoodContext';
 import { COLORS, MOOD_OPTIONS, MoodEntry } from '../constants';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const MOODS_KEY = '@moodify_moods';
 
 export default function DiaryScreen() {
   const { auth } = useAuth();
-  const [moods, setMoods] = useState<MoodEntry[]>([]);
+  const { moods, addMood, updateMood, deleteMood } = useMoods();
   const [selectedMood, setSelectedMood] = useState<typeof MOOD_OPTIONS[number] | null>(null);
   const [note, setNote] = useState('');
   const [showHistory, setShowHistory] = useState(false);
   const [viewingMood, setViewingMood] = useState<MoodEntry | null>(null);
 
-  useEffect(() => {
-    loadMoods();
-  }, []);
-
-  const loadMoods = async () => {
-    try {
-      const data = await AsyncStorage.getItem(MOODS_KEY);
-      if (data) {
-        setMoods(JSON.parse(data));
-      }
-    } catch (error) {
-      console.log('Error loading moods:', error);
-    }
-  };
-
-  const saveMoods = async (newMoods: MoodEntry[]) => {
-    setMoods(newMoods);
-    await AsyncStorage.setItem(MOODS_KEY, JSON.stringify(newMoods));
-  };
-
   const userId = auth.user?.id || 'guest';
   const today = new Date().toISOString().split('T')[0];
   const todayMood = moods.find(m => m.date === today && m.userId === userId);
-  const userMoods = moods
-    .filter(m => m.userId === userId)
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const userMoods = moods.filter(m => m.userId === userId).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-  const handleSave = () => {
-    if (!selectedMood) {
-      Alert.alert('请选择心情', '选择一个表情来记录今天的心情');
-      return;
+  useEffect(() => {
+    if (todayMood) {
+      const moodOption = MOOD_OPTIONS.find(m => m.label === todayMood.label);
+      setSelectedMood(moodOption || null);
+      setNote(todayMood.note);
+    } else {
+      setSelectedMood(null);
+      setNote('');
     }
+  }, [todayMood]);
+
+  const handleSave = async () => {
+    if (!selectedMood) return;
 
     const newMood: MoodEntry = {
       id: todayMood ? todayMood.id : Date.now().toString(),
@@ -61,35 +42,27 @@ export default function DiaryScreen() {
     };
 
     if (todayMood) {
-      saveMoods(moods.map(m => m.date === today && m.userId === userId ? newMood : m));
-      Alert.alert('更新成功', '今天的心情已更新');
+      await updateMood(newMood);
     } else {
-      saveMoods([newMood, ...moods]);
-      Alert.alert('保存成功', '你的心情已记录');
+      await addMood(newMood);
     }
-
-    setNote('');
     setSelectedMood(null);
+    setNote('');
   };
 
-  const handleDelete = () => {
-    Alert.alert('删除确认', '确定要删除今天的心情记录吗？', [
-      { text: '取消', style: 'cancel' },
-      { text: '删除', style: 'destructive', onPress: () => {
-        saveMoods(moods.filter(m => !(m.date === today && m.userId === userId)));
-        setSelectedMood(null);
-        setNote('');
-      }},
-    ]);
+  const handleDelete = async () => {
+    if (todayMood) {
+      await deleteMood(todayMood.id);
+      setSelectedMood(null);
+      setNote('');
+    }
   };
 
-  const handleViewHistory = (mood: MoodEntry) => {
-    setViewingMood(mood);
-  };
+  const handleViewHistory = (mood: MoodEntry) => setViewingMood(mood);
 
-  const handleCloseView = () => {
+  const handleCloseView = async () => {
     if (viewingMood) {
-      saveMoods(moods.filter(m => m.id !== viewingMood.id));
+      await deleteMood(viewingMood.id);
     }
     setViewingMood(null);
     setShowHistory(false);
@@ -117,11 +90,7 @@ export default function DiaryScreen() {
           <Text style={styles.sectionTitle}>今天感觉怎么样？</Text>
           <View style={styles.moodGrid}>
             {MOOD_OPTIONS.map((mood) => (
-              <TouchableOpacity
-                key={mood.label}
-                style={[styles.moodOption, selectedMood?.label === mood.label && { backgroundColor: mood.color + '20', borderColor: mood.color }]}
-                onPress={() => setSelectedMood(mood)}
-              >
+              <TouchableOpacity key={mood.label} style={[styles.moodOption, selectedMood?.label === mood.label && { backgroundColor: mood.color + '20', borderColor: mood.color }]} onPress={() => setSelectedMood(mood)}>
                 <Text style={styles.moodEmoji}>{mood.emoji}</Text>
                 <Text style={[styles.moodLabel, selectedMood?.label === mood.label && { color: mood.color }]}>{mood.label}</Text>
               </TouchableOpacity>
@@ -129,25 +98,13 @@ export default function DiaryScreen() {
           </View>
 
           <Text style={styles.sectionTitle}>写下今天的故事</Text>
-          <TextInput
-            style={styles.noteInput}
-            placeholder="记录今天让你感受深刻的事情..."
-            placeholderTextColor={COLORS.textSecondary}
-            multiline
-            value={note}
-            onChangeText={setNote}
-            textAlignVertical="top"
-          />
+          <TextInput style={styles.noteInput} placeholder="记录今天让你感受深刻的事情..." placeholderTextColor={COLORS.textSecondary} multiline value={note} onChangeText={setNote} textAlignVertical="top" />
 
           <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
             <Text style={styles.saveButtonText}>{todayMood ? '更新记录' : '保存'}</Text>
           </TouchableOpacity>
 
-          {todayMood && (
-            <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
-              <Text style={styles.deleteButtonText}>删除今天记录</Text>
-            </TouchableOpacity>
-          )}
+          {todayMood && <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}><Text style={styles.deleteButtonText}>删除今天记录</Text></TouchableOpacity>}
         </View>
 
         <TouchableOpacity style={styles.historyHeader} onPress={() => setShowHistory(!showHistory)}>
@@ -162,10 +119,7 @@ export default function DiaryScreen() {
                 <TouchableOpacity key={mood.id} style={styles.historyItem} onPress={() => handleViewHistory(mood)}>
                   <View style={styles.historyLeft}>
                     <Text style={styles.historyEmoji}>{mood.emoji}</Text>
-                    <View>
-                      <Text style={styles.historyDate}>{formatDate(mood.date)}</Text>
-                      <Text style={styles.historyMood}>{mood.label}</Text>
-                    </View>
+                    <View><Text style={styles.historyDate}>{formatDate(mood.date)}</Text><Text style={styles.historyMood}>{mood.label}</Text></View>
                   </View>
                   {mood.note ? <Text style={styles.historyNote} numberOfLines={2}>{mood.note}</Text> : null}
                   <Text style={styles.viewHint}>点击查看</Text>
@@ -177,20 +131,6 @@ export default function DiaryScreen() {
           </View>
         )}
       </ScrollView>
-
-      <Modal visible={!!viewingMood} animationType="slide" transparent onRequestClose={handleCloseView}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalEmoji}>{viewingMood?.emoji}</Text>
-            <Text style={styles.modalMood}>{viewingMood?.label}</Text>
-            <Text style={styles.modalDate}>{formatDate(viewingMood?.date || '')}</Text>
-            {viewingMood?.note ? <Text style={styles.modalNote}>{viewingMood.note}</Text> : <Text style={styles.noNoteText}>暂无记录</Text>}
-            <TouchableOpacity style={styles.closeButton} onPress={handleCloseView}>
-              <Text style={styles.closeButtonText}>查看后自动删除</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     </KeyboardAvoidingView>
   );
 }
