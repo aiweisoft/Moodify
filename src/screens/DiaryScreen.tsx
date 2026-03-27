@@ -52,8 +52,7 @@ export default function DiaryScreen() {
     } else {
       await addMood(newMood);
     }
-    setSelectedMood(null);
-    setNote('');
+    setError(todayMood ? '更新成功' : '保存成功');
   };
 
   const handleDelete = async () => {
@@ -106,7 +105,7 @@ export default function DiaryScreen() {
           <Text style={styles.sectionTitle}>写下今天的故事</Text>
           <TextInput style={styles.noteInput} placeholder="记录今天让你感受深刻的事情..." placeholderTextColor={COLORS.textSecondary} multiline value={note} onChangeText={(text) => { setNote(text); setError(''); }} textAlignVertical="top" />
 
-          {error ? <View style={styles.errorContainer}><Text style={styles.errorText}>{error}</Text></View> : null}
+          {error ? <View style={[styles.errorContainer, error.includes('成功') ? styles.successContainer : null]}><Text style={[styles.errorText, error.includes('成功') ? styles.successText : null]}>{error}</Text></View> : null}
 
           <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
             <Text style={styles.saveButtonText}>{todayMood ? '更新记录' : '保存'}</Text>
@@ -184,4 +183,6 @@ const styles = StyleSheet.create({
   closeButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
   errorContainer: { backgroundColor: '#FEE2E2', padding: 12, borderRadius: 8, marginBottom: 12 },
   errorText: { color: '#EF4444', fontSize: 14, textAlign: 'center' },
+  successContainer: { backgroundColor: '#DCFCE7' },
+  successText: { color: '#22C55E' },
 });
