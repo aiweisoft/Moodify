@@ -5,9 +5,17 @@ on:
     branches:
       - master
 
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pages: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -20,20 +28,21 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Install Expo
+      - name: Install Expo web deps
         run: npx expo install react-dom react-native-web
 
       - name: Export web build
         run: npx expo export --platform web
 
-      - name: Fix asset paths
+      - name: Fix asset paths for subdirectory
         run: |
           sed -i 's|src="/_expo|src="./_expo|g' dist/index.html
           sed -i 's|href="/favicon.ico"|href="./favicon.ico"|g' dist/index.html
 
       - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
+        uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./dist
           publish_branch: gh-pages
+          force_orphan: true
