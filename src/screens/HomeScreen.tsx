@@ -1,12 +1,12 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Alert } from 'react-native';
 import { useApp } from '../context/AppContext';
 import { COLORS, MOOD_OPTIONS } from '../constants';
 
 const { width } = Dimensions.get('window');
 
 export default function HomeScreen({ navigation }: any) {
-  const { getTodayMood, getWeekMoods, state } = useApp();
+  const { getTodayMood, getWeekMoods, state, logout } = useApp();
   const todayMood = getTodayMood();
   const weekMoods = getWeekMoods();
 
@@ -27,11 +27,30 @@ export default function HomeScreen({ navigation }: any) {
     return '晚上好';
   };
 
+  const handleLogout = () => {
+    Alert.alert(
+      '确认退出',
+      '确定要退出登录吗？',
+      [
+        { text: '取消', style: 'cancel' },
+        { text: '退出', style: 'destructive', onPress: logout },
+      ]
+    );
+  };
+
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.greeting}>{getGreeting()} 👋</Text>
-        <Text style={styles.subtitle}>今天心情怎么样？</Text>
+        <View style={styles.headerTop}>
+          <View>
+            <Text style={styles.greeting}>{getGreeting()} 👋</Text>
+            <Text style={styles.subtitle}>今天心情怎么样？</Text>
+          </View>
+          <TouchableOpacity style={styles.userButton} onPress={handleLogout}>
+            <Text style={styles.userName}>{state.currentUser?.username || '游客'}</Text>
+            <Text style={styles.logoutIcon}>↪</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={styles.todayCard}>
@@ -263,5 +282,27 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: COLORS.textPrimary,
+  },
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  userButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.card,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  userName: {
+    fontSize: 14,
+    color: COLORS.textPrimary,
+    marginRight: 4,
+  },
+  logoutIcon: {
+    fontSize: 16,
+    color: COLORS.textSecondary,
   },
 });

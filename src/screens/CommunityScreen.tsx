@@ -25,6 +25,7 @@ export default function CommunityScreen() {
       return;
     }
 
+    const userId = state.currentUser?.id || 'guest';
     const post: Post = {
       id: Date.now().toString(),
       content: newPost.trim(),
@@ -32,6 +33,7 @@ export default function CommunityScreen() {
       comments: 0,
       createdAt: Date.now(),
       liked: false,
+      userId,
     };
 
     dispatch({ type: 'ADD_POST', payload: post });

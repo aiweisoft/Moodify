@@ -25,8 +25,9 @@ export default function DiaryScreen() {
       return;
     }
 
+    const userId = state.currentUser?.id || 'guest';
     const today = new Date().toISOString().split('T')[0];
-    const existingMood = state.moods.find(m => m.date === today);
+    const existingMood = state.moods.find(m => m.date === today && m.userId === userId);
 
     const newMood: MoodEntry = {
       id: existingMood ? existingMood.id : Date.now().toString(),
@@ -35,12 +36,13 @@ export default function DiaryScreen() {
       label: selectedMood.label,
       note: note.trim(),
       timestamp: Date.now(),
+      userId,
     };
 
     if (existingMood) {
       dispatch({
         type: 'SET_MOODS',
-        payload: state.moods.map(m => m.date === today ? newMood : m),
+        payload: state.moods.map(m => m.date === today && m.userId === userId ? newMood : m),
       });
       Alert.alert('更新成功', '今天的心情已更新');
     } else {
@@ -64,9 +66,14 @@ export default function DiaryScreen() {
     return `${date.getMonth() + 1}月${date.getDate()}日`;
   };
 
+  const userId = state.currentUser?.id || 'guest';
   const todayMood = state.moods.find(
-    m => m.date === new Date().toISOString().split('T')[0]
+    m => m.date === new Date().toISOString().split('T')[0] && m.userId === userId
   );
+
+  const userMoods = state.moods
+    .filter(m => m.userId === userId)
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   return (
     <KeyboardAvoidingView
@@ -135,9 +142,8 @@ export default function DiaryScreen() {
 
         {showHistory && (
           <View style={styles.historyList}>
-            {state.moods.length > 0 ? (
-              state.moods
-                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+            {userMoods.length > 0 ? (
+              userMoods
                 .map((mood) => (
                   <View key={mood.id} style={styles.historyItem}>
                     <View style={styles.historyLeft}>
