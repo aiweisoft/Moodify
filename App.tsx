@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { StatusBar, Alert } from 'expo-status-bar';
 import { Text, View, TouchableOpacity, StyleSheet } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, NavigationContainerRef } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { AppProvider, useApp } from './src/context/AppContext';
 import AuthScreen from './src/screens/AuthScreen';
@@ -46,21 +46,47 @@ function MainNavigator() {
   );
 }
 
-function AppContent() {
-  const { state } = useApp();
+export default function App() {
+  const navigationRef = useRef<NavigationContainerRef<any>>(null);
+  
+  return (
+    <AppProvider>
+      <StatusBar style="dark" />
+      <NavigationContainer ref={navigationRef}>
+        <AppContent navigationRef={navigationRef} />
+      </NavigationContainer>
+    </AppProvider>
+  );
+}
+
+function AppContent({ navigationRef }: { navigationRef: React.RefObject<NavigationContainerRef<any>> }) {
+  const { state, logout } = useApp();
   const [ready, setReady] = useState(false);
-  const [version, setVersion] = useState(0);
+  const [showAuth, setShowAuth] = useState(false);
 
   useEffect(() => {
-    const timer = setTimeout(() => setReady(true), 100);
-    return () => clearTimeout(timer);
+    setTimeout(() => setReady(true), 100);
   }, []);
 
   useEffect(() => {
     if (ready) {
-      setVersion(v => v + 1);
+      if (!state.currentUser && !showAuth) {
+        setShowAuth(true);
+      } else if (state.currentUser && showAuth) {
+        setShowAuth(false);
+        navigationRef.current?.reset({
+          index: 0,
+          routes: [{ name: 'Home' }],
+        });
+      }
     }
   }, [state.currentUser, ready]);
+
+  useEffect(() => {
+    if (ready && !state.currentUser) {
+      setShowAuth(true);
+    }
+  }, [ready]);
 
   if (!ready) {
     return (
@@ -70,25 +96,18 @@ function AppContent() {
     );
   }
 
-  return (
-    <View style={styles.container}>
-      {version > 0 && !state.currentUser ? (
-        <AuthScreen key="auth-screen" onAuthSuccess={() => {}} />
-      ) : version > 0 && state.currentUser ? (
-        <MainNavigator key={`nav-${state.currentUser.id}`} />
-      ) : null}
-    </View>
-  );
-}
+  if (!state.currentUser) {
+    return (
+      <View style={styles.container} key="auth-view">
+        <AuthScreen onAuthSuccess={() => {}} />
+      </View>
+    );
+  }
 
-export default function App() {
   return (
-    <AppProvider>
-      <StatusBar style="dark" />
-      <NavigationContainer>
-        <AppContent />
-      </NavigationContainer>
-    </AppProvider>
+    <View style={styles.container} key="main-view">
+      <MainNavigator />
+    </View>
   );
 }
 

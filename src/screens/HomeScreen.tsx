@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Alert } from 'react-native';
 import { useApp } from '../context/AppContext';
 import { COLORS, MOOD_OPTIONS } from '../constants';
@@ -9,6 +9,11 @@ export default function HomeScreen({ navigation }: any) {
   const { getTodayMood, getWeekMoods, state, logout } = useApp();
   const todayMood = getTodayMood();
   const weekMoods = getWeekMoods();
+  const [, forceUpdate] = useState(0);
+
+  useEffect(() => {
+    forceUpdate(n => n + 1);
+  }, [state.currentUser]);
 
   const getMoodEmoji = (label: string) => {
     const mood = MOOD_OPTIONS.find(m => m.label === label);
@@ -36,7 +41,9 @@ export default function HomeScreen({ navigation }: any) {
         { 
           text: '退出', 
           style: 'destructive', 
-          onPress: () => logout(),
+          onPress: () => {
+            logout();
+          },
         },
       ]
     );
@@ -102,7 +109,7 @@ export default function HomeScreen({ navigation }: any) {
               const date = new Date();
               date.setDate(date.getDate() - (6 - index));
               const dateStr = date.toISOString().split('T')[0];
-              const mood = state.moods.find(m => m.date === dateStr);
+              const mood = state.moods.find(m => m.date === dateStr && m.userId === state.currentUser?.id);
               const dayNames = ['日', '一', '二', '三', '四', '五', '六'];
               
               return (

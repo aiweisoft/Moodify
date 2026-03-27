@@ -78,7 +78,7 @@ interface AppContextType {
   getWeekMoods: () => MoodEntry[];
   login: (username: string, password: string) => { success: boolean; message: string };
   register: (username: string, password: string) => { success: boolean; message: string };
-  logout: () => Promise<void>;
+  logout: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -168,23 +168,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return { success: true, message: '注册成功' };
   };
 
-  const logout = async () => {
-    console.log('logout called, current user:', state.currentUser?.username);
+  const logout = () => {
     dispatch({ type: 'SET_CURRENT_USER', payload: null });
     dispatch({ type: 'SET_MOODS', payload: [] });
-    try {
-      await AsyncStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({
-          users: state.users,
-          currentUser: null,
-          moods: state.moods,
-        })
-      );
-    } catch (error) {
-      console.log('Error saving on logout:', error);
-    }
-    console.log('logout done, current user now:', state.currentUser);
+    AsyncStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        users: state.users,
+        currentUser: null,
+        moods: state.moods,
+      })
+    ).catch(e => console.log('Error saving on logout:', e));
   };
 
   const getTodayMood = (): MoodEntry | undefined => {
