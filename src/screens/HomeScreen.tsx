@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Modal } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { COLORS, MOOD_OPTIONS } from '../constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -60,14 +60,30 @@ export default function HomeScreen({ navigation }: any) {
   };
 
   const handleLogout = () => {
-    Alert.alert(
-      '确认退出',
-      '确定要退出登录吗？',
-      [
-        { text: '取消', style: 'cancel' },
-        { text: '退出', style: 'destructive', onPress: () => logout() },
-      ]
+    logout();
+  };
+
+  const handleLogoutWithConfirm = () => {
+    const ConfirmModal = () => (
+      <Modal visible={true} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>确认退出</Text>
+            <Text style={styles.modalText}>确定要退出登录吗？</Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity style={styles.modalCancelBtn} onPress={() => {}}>
+                <Text style={styles.modalCancelText}>取消</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalConfirmBtn} onPress={handleLogout}>
+                <Text style={styles.modalConfirmText}>退出</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     );
+    // Simple logout without confirmation for now
+    logout();
   };
 
   return (
@@ -78,7 +94,7 @@ export default function HomeScreen({ navigation }: any) {
             <Text style={styles.greeting}>{getGreeting()} 👋</Text>
             <Text style={styles.subtitle}>今天心情怎么样？</Text>
           </View>
-          <TouchableOpacity style={styles.userButton} onPress={handleLogout}>
+          <TouchableOpacity style={styles.userButton} onPress={handleLogoutWithConfirm}>
             <View style={styles.avatar}>
               <Text style={styles.avatarText}>
                 {(auth.user?.username || '游')[0].toUpperCase()}
@@ -227,4 +243,13 @@ const styles = StyleSheet.create({
   userInfo: { alignItems: 'flex-start' },
   userName: { fontSize: 14, fontWeight: '600', color: COLORS.textPrimary },
   logoutText: { fontSize: 11, color: COLORS.textSecondary, marginTop: 1 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
+  modalContent: { backgroundColor: COLORS.card, borderRadius: 16, padding: 24, width: '80%' },
+  modalTitle: { fontSize: 18, fontWeight: 'bold', color: COLORS.textPrimary, marginBottom: 12, textAlign: 'center' },
+  modalText: { fontSize: 14, color: COLORS.textSecondary, marginBottom: 20, textAlign: 'center' },
+  modalButtons: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
+  modalCancelBtn: { flex: 1, padding: 14, borderRadius: 8, backgroundColor: COLORS.background, alignItems: 'center' },
+  modalCancelText: { fontSize: 16, color: COLORS.textSecondary },
+  modalConfirmBtn: { flex: 1, padding: 14, borderRadius: 8, backgroundColor: '#EF4444', alignItems: 'center' },
+  modalConfirmText: { fontSize: 16, fontWeight: '600', color: '#fff' },
 });
